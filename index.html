@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="tab-bar">
+        <button class="tab active" data-view="today">Today</button>
+        <button class="tab" data-view="plan">Plan</button>
+        <button class="tab" data-view="log">Log</button>
+        <button class="tab" data-view="progress">Progress</button>
+        <button class="tab" data-view="goals">Goals</button>
+        <button class="tab" data-view="settings">⚙️</button>
+    </nav>
+
+    <main>
+        <!-- TODAY VIEW -->
+        <section id="view-today" class="view active">
+            <div class="today-header">
+                <h1 id="today-date"></h1>
+                <p id="today-dayname"></p>
+            </div>
+            <div id="today-workout"></div>
+        </section>
+
+        <!-- PLAN VIEW -->
+        <section id="view-plan" class="view">
+            <div class="plan-header">
+                <h2>Your Plans</h2>
+                <button class="btn btn-primary" onclick="openCreatePlan()">+ New Plan</button>
+            </div>
+            <div id="plan-list"></div>
+        </section>
+
+        <!-- LOG VIEW -->
+        <section id="view-log" class="view">
+            <h2>Workout Log</h2>
+            <div id="log-list"></div>
+        </section>
+
+        <!-- PROGRESS VIEW -->
+        <section id="view-progress" class="view">
+            <h2>Progress</h2>
+            <div id="progress-content"></div>
+        </section>
+
+        <!-- GOALS VIEW -->
+        <section id="view-goals" class="view">
+            <h2>Goals</h2>
+            <div id="goals-content"></div>
+        </section>
+
+        <!-- SETTINGS VIEW -->
+        <section id="view-settings" class="view">
+            <h2>Settings</h2>
+            <div id="settings-content"></div>
+        </section>
+    </main>
+
+    <!-- Exercise Entry Modal -->
+    <div id="modal" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Exercise</h3>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Plan Editor Modal -->
+    <div id="plan-modal" class="modal" style="display:none">
+        <div class="modal-content plan-editor">
+            <div class="modal-header">
+                <h3 id="plan-editor-title">New Plan</h3>
+                <button class="close-btn" onclick="closePlanModal()">✕</button>
+            </div>
+            <div id="plan-editor-body"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
