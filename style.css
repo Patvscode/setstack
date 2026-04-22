@@ -17,7 +17,7 @@ body {
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
-    padding-bottom: 80px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 8px) + 60px);
 }
 
 /* Tab Bar */
@@ -31,11 +31,12 @@ body {
     border-top: 1px solid var(--border);
     z-index: 100;
     overflow-x: auto;
+    padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
 .tab {
     flex: 1;
-    padding: 12px 8px;
+    padding: 12px 8px 8px;
     background: none;
     border: none;
     color: var(--text-dim);
@@ -49,6 +50,45 @@ body {
 .tab.active {
     color: var(--accent);
     border-top: 2px solid var(--accent);
+}
+
+/* Status Strip — sits above tab bar, shows current workout info */
+.status-strip {
+    position: fixed;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    background: rgba(18,18,26,0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    padding: 6px 14px;
+    z-index: 99;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    justify-content: space-between;
+}
+
+.status-strip.visible { display: flex; }
+.status-strip .status-info { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.status-strip .status-name { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-strip .status-detail { color: var(--text-dim); white-space: nowrap; }
+.status-strip .status-progress { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.status-strip .mini-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border);
+}
+.status-strip .mini-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s;
 }
 
 /* Views */
@@ -174,6 +214,21 @@ body {
 .btn-set:hover { border-color: var(--accent); color: var(--accent); }
 .btn-set.btn-done { border-color: var(--accent2); background: var(--accent2); color: #fff; }
 
+.btn-set-next {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: var(--border);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: none;
+}
+
+.btn-set-next:hover { background: var(--accent); color: #000; }
+
 /* Buttons */
 .btn {
     padding: 10px 20px;
@@ -222,22 +277,6 @@ body {
 .rest-day h3 { font-size: 20px; margin-bottom: 8px; }
 .rest-day p { color: var(--text-dim); margin-bottom: 20px; }
 
-.rest-tips {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 20px;
-    text-align: left;
-}
-
-.rest-tip {
-    background: var(--card);
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    border: 1px solid var(--border);
-}
-
 .btn-rest {
     padding: 12px 24px;
     background: var(--border);
@@ -258,33 +297,124 @@ body {
 
 .plan-header h2 { margin: 0; }
 
-.day-card {
+/* Plan Cards */
+.plan-card {
     background: var(--card);
     border-radius: 12px;
     margin-bottom: 12px;
     border: 1px solid var(--border);
-    border-left: 4px solid;
+    border-left: 4px solid var(--accent);
 }
 
-.day-card-header {
+.plan-card-header {
     padding: 14px;
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.day-icon { font-size: 24px; }
-.day-card-header h3 { font-size: 15px; }
-.day-card-header p { font-size: 12px; color: var(--text-dim); }
+.plan-icon { font-size: 28px; flex-shrink: 0; }
+.plan-card-header h3 { font-size: 15px; margin-bottom: 2px; }
+.plan-card-header p { font-size: 12px; color: var(--text-dim); }
+.plan-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
 
-.day-actions {
+/* Routine Selector */
+.routine-selector { margin-bottom: 16px; }
+.routine-selector h3 { margin-bottom: 12px; font-size: 16px; }
+.routine-item {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+}
+.routine-today { border-left: 3px solid var(--accent); }
+.routine-item strong { font-size: 14px; display: block; margin-bottom: 2px; }
+.routine-item p { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.routine-actions { display: flex; gap: 6px; }
+.routine-actions .btn-sm { flex: 1; }
+
+/* Routine Editor */
+.routine-header {
     display: flex;
-    gap: 4px;
-    margin-left: auto;
-    flex-shrink: 0;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.routine-header h2 { flex: 1; font-size: 18px; }
+
+.routine-form label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+.routine-form label input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+.routine-form label input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+/* Exercise Row in Editor */
+.exercise-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
 }
 
-.day-actions .btn-sm { padding: 6px 8px; font-size: 11px; }
+.exercise-name-input {
+    flex: 2;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    min-width: 0;
+}
+
+.exercise-sets-input {
+    width: 44px;
+    padding: 8px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
+}
+
+.exercise-reps-input {
+    flex: 2;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    min-width: 0;
+}
+
+.exercise-rest-input {
+    width: 70px;
+    padding: 8px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
+}
 
 /* Log View */
 .log-entry {
@@ -342,13 +472,15 @@ body {
 }
 
 .bar-fill {
+    min-height: 10px;
     width: 24px;
     background: var(--accent);
+    opacity: 0.3;
     border-radius: 4px 4px 0 0;
     transition: height 0.3s;
 }
 
-.bar-active .bar-fill { background: var(--accent2); }
+.bar-active .bar-fill { opacity: 1; background: var(--accent2); }
 
 .bar-label { font-size: 11px; color: var(--text-dim); }
 
@@ -443,17 +575,8 @@ body {
 }
 
 /* Plan Editor */
-.plan-form {
-    padding: 16px;
-}
-
-.plan-form label {
-    display: block;
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-}
-
+.plan-form { padding: 16px; }
+.plan-form label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 4px; }
 .plan-form label input[type="text"] {
     width: 100%;
     padding: 10px;
@@ -464,11 +587,7 @@ body {
     font-size: 16px;
     margin-bottom: 12px;
 }
-
-.plan-form label input[type="text"]:focus {
-    outline: none;
-    border-color: var(--accent);
-}
+.plan-form label input[type="text"]:focus { outline: none; border-color: var(--accent); }
 
 .plan-row {
     display: grid;
@@ -492,59 +611,70 @@ body {
     font-size: 14px;
 }
 
-/* Exercise Row in Editor */
-.exercise-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: 8px;
-    padding: 8px;
-    background: rgba(255,255,255,0.02);
+/* Weight Presets Modal */
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 16px;
+}
+
+.preset-btn {
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.exercise-name-input {
-    flex: 2;
+.preset-btn:hover { border-color: var(--accent); background: rgba(79,195,247,0.1); }
+
+.preset-custom {
+    padding: 0 16px 16px;
+}
+
+.preset-custom label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+.preset-input {
+    width: 100%;
     padding: 8px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text);
-    font-size: 13px;
+    font-size: 14px;
+}
+
+.btn-weight-preset {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--border);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.btn-weight-preset:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+/* Set inputs layout */
+.set-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
     min-width: 0;
-}
-
-.exercise-sets-input {
-    width: 44px;
-    padding: 8px 4px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    text-align: center;
-}
-
-.exercise-reps-input {
-    flex: 2;
-    padding: 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    min-width: 0;
-}
-
-.exercise-rest-input {
-    width: 70px;
-    padding: 8px 4px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    text-align: center;
 }
 
 /* Selects */

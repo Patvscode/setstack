@@ -249,6 +249,9 @@ function renderToday() {
     const today = getTodayEntry();
     const todayRoutine = getTodayRoutine();
 
+    // Update status strip
+    updateStatusStrip(today, todayRoutine);
+
     if (!todayRoutine) {
         document.getElementById('today-workout').innerHTML = `
             <div class="rest-day">
@@ -299,7 +302,7 @@ function renderToday() {
                         <span class="sets-counter">${setsDone}/${ex.sets}</span>
                     </div>
                 </div>
-                <div class="exercise-body" id="exercise-body-${idx}" style="display:${allDone ? 'block' : 'none'}">
+                <div class="exercise-body" id="exercise-body-${idx}" style="display:block">
                     ${renderSets(ex, idx, log)}
                 </div>
             </div>`;
@@ -527,18 +530,48 @@ function updateOverallProgress() {
     const completedSets = Object.values(today.exercises || {}).reduce((s, sets) => s + sets.filter(x => x.done).length, 0);
     const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
-    const fill = document.querySelector('.progress-fill');
+    const fill = document.querySelector('#view-today .progress-fill');
     const progressSpan = document.querySelector('.workout-progress');
     const meta = document.querySelector('.workout-meta');
     if (fill) fill.style.width = pct + '%';
     if (progressSpan) progressSpan.textContent = pct + '%';
     if (meta) meta.textContent = `${routine.routine.name} · ${routine.routine.exercises.length} exercises · ${totalSets} sets · ${completedSets}/${totalSets} sets done`;
 
+    updateStatusStrip(today, { plan: todayRoutine.plan, routine: todayRoutine.routine });
+
     // Show/hide finish button
     const existing = document.querySelector('.btn-finish');
     if (completedSets > 0 && !today.completed && !existing) {
         document.getElementById('today-workout').insertAdjacentHTML('beforeend',
             '<button class="btn btn-finish" onclick="finishWorkout()">🏁 Finish Workout</button>');
+    }
+}
+
+// ─── Status Strip ──────────────────────────────────────────────────────
+function updateStatusStrip(today, todayRoutine) {
+    const strip = document.getElementById('status-strip');
+    if (!strip) return;
+
+    if (todayRoutine && !today.completed) {
+        const routine = todayRoutine.routine;
+        const plan = todayRoutine.plan;
+        const totalSets = routine.exercises.reduce((s, e) => s + e.sets, 0);
+        const completedSets = today.exercises ? Object.values(today.exercises).reduce((s, sets) => s + sets.filter(x => x.done).length, 0) : 0;
+        const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+
+        document.getElementById('status-name').textContent = `${plan.icon} ${routine.name}`;
+        document.getElementById('status-detail').textContent = `${completedSets}/${totalSets} sets`;
+        document.getElementById('status-progress').textContent = pct + '%';
+        document.getElementById('status-progress-fill').style.width = pct + '%';
+        strip.classList.add('visible');
+    } else if (today.completed) {
+        document.getElementById('status-name').textContent = '✅ Workout Complete';
+        document.getElementById('status-detail').textContent = today.totalTime ? today.totalTime + ' min' : '';
+        document.getElementById('status-progress').textContent = '100%';
+        document.getElementById('status-progress-fill').style.width = '100%';
+        strip.classList.add('visible');
+    } else {
+        strip.classList.remove('visible');
     }
 }
 
@@ -923,13 +956,15 @@ function renderProgress() {
         </div>
         <div class="activity-chart"><h3>Last 7 Days</h3><div class="bars">`;
 
+    const today = new Date();
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
-        d.setDate(d.getDate() - i);
+        d.setDate(today.getDate() - i);
         const dateKey = d.toISOString().split("T")[0];
         const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
         const hasWorkout = logs.some(l => l.date === dateKey);
-        html += `<div class="bar ${hasWorkout ? 'bar-active' : ''}"><div class="bar-fill" style="height:${hasWorkout ? '100%' : '10%'}"></div><span class="bar-label">${dayName}</span></div>`;
+        const barHeight = hasWorkout ? 100 : 8;
+        html += `<div class="bar ${hasWorkout ? 'bar-active' : ''}"><div class="bar-fill" style="height:${barHeight}%"></div><span class="bar-label">${dayName}</span></div>`;
     }
 
     html += '</div></div>';
@@ -1064,6 +1099,10 @@ function showView(viewId) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     const tab = document.querySelector(`.tab[data-view="${viewId}"]`);
     if (tab) tab.classList.add('active');
+
+    // Hide status strip on non-today views
+    const strip = document.getElementById('status-strip');
+    if (strip && viewId !== 'today') strip.classList.remove('visible');
 }
 
 function formatTime(isoStr) {

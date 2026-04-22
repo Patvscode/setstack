@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Status Strip — sits above tab bar, shows current workout info -->
+    <div class="status-strip" id="status-strip">
+        <div class="status-info">
+            <span class="status-name" id="status-name"></span>
+            <span class="status-detail" id="status-detail"></span>
+        </div>
+        <span class="status-progress" id="status-progress"></span>
+        <div class="mini-progress"><div class="mini-progress-fill" id="status-progress-fill"></div></div>
+    </div>
+
     <nav class="tab-bar">
         <button class="tab active" data-view="today">Today</button>
         <button class="tab" data-view="plans">Plans</button>
