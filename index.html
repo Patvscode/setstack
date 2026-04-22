@@ -9,7 +9,7 @@
 <body>
     <nav class="tab-bar">
         <button class="tab active" data-view="today">Today</button>
-        <button class="tab" data-view="plan">Plan</button>
+        <button class="tab" data-view="plans">Plans</button>
         <button class="tab" data-view="log">Log</button>
         <button class="tab" data-view="progress">Progress</button>
         <button class="tab" data-view="goals">Goals</button>
@@ -26,13 +26,22 @@
             <div id="today-workout"></div>
         </section>
 
-        <!-- PLAN VIEW -->
-        <section id="view-plan" class="view">
-            <div class="plan-header">
-                <h2>Your Plans</h2>
+        <!-- PLANS VIEW -->
+        <section id="view-plans" class="view">
+            <div class="plans-header">
+                <h2>Training Plans</h2>
                 <button class="btn btn-primary" onclick="openCreatePlan()">+ New Plan</button>
             </div>
             <div id="plan-list"></div>
+        </section>
+
+        <!-- ROUTINE EDITOR VIEW (shown when editing a routine) -->
+        <section id="view-routine-editor" class="view">
+            <div class="routine-header">
+                <button class="btn btn-sm" onclick="goBackFromRoutine()">← Back</button>
+                <h2 id="routine-editor-title">New Routine</h2>
+            </div>
+            <div id="routine-editor-content"></div>
         </section>
 
         <!-- LOG VIEW -->
@@ -60,17 +69,6 @@
         </section>
     </main>
 
-    <!-- Exercise Entry Modal -->
-    <div id="modal" class="modal" style="display:none">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Exercise</h3>
-                <button class="close-btn" onclick="closeModal()">✕</button>
-            </div>
-            <div id="modal-body"></div>
-        </div>
-    </div>
-
     <!-- Plan Editor Modal -->
     <div id="plan-modal" class="modal" style="display:none">
         <div class="modal-content plan-editor">
@@ -79,6 +77,17 @@
                 <button class="close-btn" onclick="closePlanModal()">✕</button>
             </div>
             <div id="plan-editor-body"></div>
+        </div>
+    </div>
+
+    <!-- Quick Weight Presets Modal -->
+    <div id="weight-modal" class="modal" style="display:none">
+        <div class="modal-content weight-presets">
+            <div class="modal-header">
+                <h3>Quick Weight</h3>
+                <button class="close-btn" onclick="closeWeightModal()">✕</button>
+            </div>
+            <div id="weight-preset-body"></div>
         </div>
     </div>
 

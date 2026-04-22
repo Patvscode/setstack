@@ -1,66 +1,74 @@
-// ─── Workout Tracker App v2 ─────────────────────────────────────────
-// LocalStorage-based, no dependencies, mobile-first
-// v2: Auto-filled reps, custom plan builder
+// ─── Workout Tracker v3: Plans → Routines → Exercises ────
+// Data hierarchy:
+//   Plan (bulking/cutting, months long) → Routines (Mon back, Tue chest) → Exercises
+//
+// Quick Set Entry:
+//   - Arrow keys: up/down to next/prev set
+//   - Enter: confirm set, auto-advance
+//   - Tab: jump between inputs
+//   - Preset weight buttons for common jumps
+//   - All input saves instantly to localStorage
 
 const DEFAULT_PLANS = [
-    { id: "back", name: "Back", icon: "🔙", color: "#e74c3c",
-      dayOfWeek: 1, exercises: [
-        { name: "Deadlifts", sets: 4, reps: "10, 8, 8, then to failure", rest: "3 min", notes: "Progressive overload" },
-        { name: "Bent-Over Rows", sets: 4, reps: "12, 10, 10, 8", rest: "2 min", notes: "" },
-        { name: "Wide-Grip Lat Pulldowns", sets: 4, reps: "12-15", rest: "90 sec", notes: "or assisted pull-ups" },
-        { name: "Straight-Arm Pulldowns", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
-        { name: "Dumbbell Rows", sets: 4, reps: "15, 12, 10, 10", rest: "2 min", notes: "" },
-        { name: "Machine Rows", sets: 3, reps: "20", rest: "90 sec", notes: "" },
-        { name: "Hyperextensions", sets: 2, reps: "to failure", rest: "90 sec", notes: "Bodyweight or light weight" },
-    ]},
-    { id: "chest-biceps", name: "Chest & Biceps", icon: "💪", color: "#e67e22",
-      dayOfWeek: 2, exercises: [
-        { name: "Incline DB Bench Press", sets: 5, reps: "15, 15, 12, 12, 10", rest: "2-3 min", notes: "" },
-        { name: "Smith Machine Bench Press", sets: 4, reps: "12, 10, 8, 8", rest: "2 min", notes: "" },
-        { name: "Incline DB Flyes", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
-        { name: "Cable Flyes", sets: 3, reps: "12-15", rest: "90 sec", notes: "" },
-        { name: "Push-Ups", sets: 3, reps: "to failure", rest: "90 sec", notes: "Finisher" },
-        { name: "Barbell Curls", sets: 3, reps: "15", rest: "60 sec", notes: "" },
-        { name: "Reverse Barbell Curls", sets: 3, reps: "to failure", rest: "60 sec", notes: "" },
-        { name: "Machine Preacher Curls", sets: 3, reps: "10-12", rest: "60 sec", notes: "" },
-        { name: "Hammer Curls", sets: 2, reps: "8-10", rest: "60 sec", notes: "" },
-    ]},
-    { id: "hamstrings-glutes", name: "Hamstrings & Glutes", icon: "🦵", color: "#2ecc71",
-      dayOfWeek: 3, exercises: [
-        { name: "Lying Leg Curls", sets: 4, reps: "15", rest: "90 sec", notes: "" },
-        { name: "Straight-Legged Deadlifts", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
-        { name: "Standing Leg Curls", sets: 2, reps: "4-5", rest: "2 min", notes: "Heavy, low reps" },
-        { name: "Reverse Hack Squat", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
-        { name: "Glute Kickbacks", sets: 3, reps: "12-15", rest: "90 sec", notes: "Single-leg pushdowns or cable" },
-    ]},
-    { id: "shoulders-triceps", name: "Shoulders & Triceps", icon: "🏋️", color: "#3498db",
-      dayOfWeek: 4, exercises: [
-        { name: "DB Lateral Raises", sets: 3, reps: "15", rest: "60 sec", notes: "" },
-        { name: "DB Shoulder Press", sets: 3, reps: "12", rest: "2 min", notes: "" },
-        { name: "Barbell Front Raises", sets: 3, reps: "12", rest: "90 sec", notes: "" },
-        { name: "Single-Arm Cable Raise", sets: 4, reps: "20, 15, 12, 12", rest: "60 sec", notes: "" },
-        { name: "Upright Rows", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
-        { name: "Rope Face Pulls", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
-        { name: "Machine Lateral Raises", sets: 3, reps: "15", rest: "60 sec", notes: "" },
-        { name: "Bench Dips", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
-        { name: "EZ-Bar Skull Crushers", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
-        { name: "Reverse-Grip Skull Crushers", sets: 4, reps: "8-10", rest: "90 sec", notes: "" },
-        { name: "Single-Arm Cable Kickbacks", sets: 3, reps: "12, 10, 8", rest: "60 sec", notes: "" },
-    ]},
-    { id: "quads", name: "Quads", icon: "🦵", color: "#9b59b6",
-      dayOfWeek: 5, exercises: [
-        { name: "Leg Extensions", sets: 3, reps: "15", rest: "90 sec", notes: "" },
-        { name: "Squats", sets: 2, reps: "8", rest: "3 min", notes: "" },
-        { name: "Leg Press", sets: 4, reps: "40, 30, 20, 10", rest: "2 min", notes: "Drop set scheme" },
-        { name: "Leg Extensions", sets: 4, reps: "15", rest: "90 sec", notes: "Second block" },
-        { name: "Standing Lunges", sets: 4, reps: "6-8", rest: "2 min", notes: "Each leg" },
-    ]},
+    {
+        id: "hype", name: "Hype — 5 Day Split", icon: "🔥", color: "#e74c3c",
+        duration: "8-12 weeks", phase: "bulking",
+        routines: [
+            { id: "hype-back", name: "Back", dayOfWeek: 1, exercises: [
+                { name: "Deadlifts", sets: 4, reps: "10, 8, 8, then to failure", rest: "3 min", notes: "Progressive overload" },
+                { name: "Bent-Over Rows", sets: 4, reps: "12, 10, 10, 8", rest: "2 min", notes: "" },
+                { name: "Wide-Grip Lat Pulldowns", sets: 4, reps: "12-15", rest: "90 sec", notes: "or assisted pull-ups" },
+                { name: "Straight-Arm Pulldowns", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
+                { name: "Dumbbell Rows", sets: 4, reps: "15, 12, 10, 10", rest: "2 min", notes: "" },
+                { name: "Machine Rows", sets: 3, reps: "20", rest: "90 sec", notes: "" },
+                { name: "Hyperextensions", sets: 2, reps: "to failure", rest: "90 sec", notes: "Bodyweight or light" },
+            ]},
+            { id: "hype-chest", name: "Chest & Biceps", dayOfWeek: 2, exercises: [
+                { name: "Incline DB Bench Press", sets: 5, reps: "15, 15, 12, 12, 10", rest: "2-3 min", notes: "" },
+                { name: "Smith Machine Bench Press", sets: 4, reps: "12, 10, 8, 8", rest: "2 min", notes: "" },
+                { name: "Incline DB Flyes", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
+                { name: "Cable Flyes", sets: 3, reps: "12-15", rest: "90 sec", notes: "" },
+                { name: "Push-Ups", sets: 3, reps: "to failure", rest: "90 sec", notes: "Finisher" },
+                { name: "Barbell Curls", sets: 3, reps: "15", rest: "60 sec", notes: "" },
+                { name: "Reverse Barbell Curls", sets: 3, reps: "to failure", rest: "60 sec", notes: "" },
+                { name: "Machine Preacher Curls", sets: 3, reps: "10-12", rest: "60 sec", notes: "" },
+                { name: "Hammer Curls", sets: 2, reps: "8-10", rest: "60 sec", notes: "" },
+            ]},
+            { id: "hype-hams", name: "Hamstrings & Glutes", dayOfWeek: 3, exercises: [
+                { name: "Lying Leg Curls", sets: 4, reps: "15", rest: "90 sec", notes: "" },
+                { name: "Straight-Legged Deadlifts", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
+                { name: "Standing Leg Curls", sets: 2, reps: "4-5", rest: "2 min", notes: "Heavy, low reps" },
+                { name: "Reverse Hack Squat", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
+                { name: "Glute Kickbacks", sets: 3, reps: "12-15", rest: "90 sec", notes: "Single-leg pushdowns or cable" },
+            ]},
+            { id: "hype-shoulders", name: "Shoulders & Triceps", dayOfWeek: 4, exercises: [
+                { name: "DB Lateral Raises", sets: 3, reps: "15", rest: "60 sec", notes: "" },
+                { name: "DB Shoulder Press", sets: 3, reps: "12", rest: "2 min", notes: "" },
+                { name: "Barbell Front Raises", sets: 3, reps: "12", rest: "90 sec", notes: "" },
+                { name: "Single-Arm Cable Raise", sets: 4, reps: "20, 15, 12, 12", rest: "60 sec", notes: "" },
+                { name: "Upright Rows", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
+                { name: "Rope Face Pulls", sets: 3, reps: "15, 12, 12", rest: "90 sec", notes: "" },
+                { name: "Machine Lateral Raises", sets: 3, reps: "15", rest: "60 sec", notes: "" },
+                { name: "Bench Dips", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
+                { name: "EZ-Bar Skull Crushers", sets: 4, reps: "12-15", rest: "90 sec", notes: "" },
+                { name: "Reverse-Grip Skull Crushers", sets: 4, reps: "8-10", rest: "90 sec", notes: "" },
+                { name: "Single-Arm Cable Kickbacks", sets: 3, reps: "12, 10, 8", rest: "60 sec", notes: "" },
+            ]},
+            { id: "hype-quads", name: "Quads", dayOfWeek: 5, exercises: [
+                { name: "Leg Extensions", sets: 3, reps: "15", rest: "90 sec", notes: "" },
+                { name: "Squats", sets: 2, reps: "8", rest: "3 min", notes: "" },
+                { name: "Leg Press", sets: 4, reps: "40, 30, 20, 10", rest: "2 min", notes: "Drop set scheme" },
+                { name: "Leg Extensions", sets: 4, reps: "15", rest: "90 sec", notes: "Second block" },
+                { name: "Standing Lunges", sets: 4, reps: "6-8", rest: "2 min", notes: "Each leg" },
+            ]},
+        ]
+    },
 ];
 
 const ICONS = ["💪","🏋️","🦵","🔙","🏃","🎯","🧘","⚡","🔥","💥","👊","🦾","🦿","🤸","🏀","⛹️","🤾","🏌️","🎾","🥊","🏆","❤️","🧠","🦷","👁️","👂","👃","🧬","🫁","💀"];
 const COLORS = ["#e74c3c","#e67e22","#f39c12","#2ecc71","#1abc9c","#3498db","#2980b9","#9b59b6","#8e44ad","#e84393","#fd79a8","#6c5ce7","#00b894","#fdcb6e","#e17055","#0984e3","#d63031","#a29bfe","#55efc4","#fab1a0"];
 
-const STORAGE_KEY = "workout-tracker-v2";
+const STORAGE_KEY = "workout-tracker-v3";
 
 // ─── Data Layer ──────────────────────────────────────────────────────
 function loadData() {
@@ -73,9 +81,9 @@ function saveData(data) {
 }
 
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
 function getDateKey() { return new Date().toISOString().split("T")[0]; }
 
+// ─── Plans & Routines ────────────────────────────────────────────────
 function getPlans() {
     const data = loadData();
     return data.plans || DEFAULT_PLANS;
@@ -87,22 +95,46 @@ function savePlans(plans) {
     saveData(data);
 }
 
-function getPlanForDay(dayOfWeek) {
+function getPlanById(id) { return getPlans().find(p => p.id === id); }
+
+function getDefaultPlans() { return DEFAULT_PLANS; }
+
+function isDefaultPlan(id) { return getDefaultPlans().some(d => d.id === id); }
+
+// Find today's routine from the active/default plan
+function getTodayRoutine() {
     const plans = getPlans();
-    return plans.find(p => p.dayOfWeek === dayOfWeek);
+    const dow = new Date().getDay();
+    // Try each plan for a routine matching today's day
+    for (const plan of plans) {
+        const routine = plan.routines.find(r => r.dayOfWeek === dow);
+        if (routine) return { plan, routine };
+    }
+    // Check if any routine exists for today
+    for (const plan of plans) {
+        for (const routine of plan.routines) {
+            if (routine.dayOfWeek === dow) return { plan, routine };
+        }
+    }
+    return null;
 }
 
-function getTodayData() {
+// ─── Workout Entries ─────────────────────────────────────────────────
+function getTodayEntry() {
     const data = loadData();
     const key = getDateKey();
     if (!data[key]) {
         const dow = new Date().getDay();
-        const plan = getPlanForDay(dow);
+        const today = getTodayRoutine();
         data[key] = {
             date: key,
             dayOfWeek: dow,
-            planId: plan ? plan.id : null,
-            exercises: {},
+            planId: today ? today.plan.id : null,
+            routineId: today ? today.routine.id : null,
+            routineName: today ? today.routine.name : null,
+            planName: today ? today.plan.name : null,
+            planColor: today ? today.plan.color : "#95a5a6",
+            exercises: {},  // { exerciseIdx: [{weight, reps, rir, done}, ...] }
             completed: false,
             startTime: null,
             endTime: null,
@@ -133,12 +165,11 @@ function getWorkoutLogs() {
     const logs = [];
     for (const [date, entry] of Object.entries(data)) {
         if (entry.completed && entry.exercises) {
-            const plan = getPlanById(entry.planId);
             logs.push({
                 date,
-                planName: plan ? plan.name : "Custom",
-                planIcon: plan ? plan.icon : "📋",
-                planColor: plan ? plan.color : "#95a5a6",
+                planName: entry.planName || "Custom",
+                routineName: entry.routineName || "Workout",
+                planColor: entry.planColor || "#95a5a6",
                 exerciseCount: Object.keys(entry.exercises).length,
                 totalSets: Object.values(entry.exercises).reduce((s, sets) => s + sets.length, 0),
                 startTime: entry.startTime,
@@ -148,8 +179,6 @@ function getWorkoutLogs() {
     }
     return logs.sort((a, b) => b.date.localeCompare(a.date));
 }
-
-function getPlanById(id) { return getPlans().find(p => p.id === id); }
 
 // ─── Goals ───────────────────────────────────────────────────────────
 function getGoals() {
@@ -184,6 +213,20 @@ function getWeeklyCount() {
     return logs.filter(l => l.date >= weekStart).length;
 }
 
+// ─── Quick Weight Presets ────────────────────────────────────────────
+const WEIGHT_PRESETS = [5, 7.5, 10, 15, 20, 25, 35, 45, 90]; // common plate additions
+
+function getWeightPresets() {
+    const data = loadData();
+    return data.weightPresets || WEIGHT_PRESETS;
+}
+
+function saveWeightPresets(presets) {
+    const data = loadData();
+    data.weightPresets = presets;
+    saveData(data);
+}
+
 // ─── UI Rendering ────────────────────────────────────────────────────
 function init() {
     const now = new Date();
@@ -193,7 +236,7 @@ function init() {
     document.getElementById('today-dayname').textContent = dayNames[now.getDay()];
 
     renderToday();
-    renderPlan();
+    renderPlans();
     renderLog();
     renderProgress();
     renderGoals();
@@ -201,34 +244,33 @@ function init() {
     setupTabs();
 }
 
+// ─── TODAY VIEW ──────────────────────────────────────────────────────
 function renderToday() {
-    const today = getTodayData();
-    const plan = getPlanById(today.planId) || getPlanForDay(today.dayOfWeek);
-    const container = document.getElementById('today-workout');
+    const today = getTodayEntry();
+    const todayRoutine = getTodayRoutine();
 
-    if (!plan || plan.exercises.length === 0) {
-        container.innerHTML = `
+    if (!todayRoutine) {
+        document.getElementById('today-workout').innerHTML = `
             <div class="rest-day">
                 <div class="rest-icon">😴</div>
                 <h3>Rest Day</h3>
-                <p>Recovery, mobility, walking, eating enough, sleeping well.</p>
-                <div class="rest-tips">
-                    <div class="rest-tip">🚶 Walk 8-10k steps</div>
-                    <div class="rest-tip">🧘 Stretch 10-15 min</div>
-                    <div class="rest-tip">💧 Hydrate well</div>
-                    <div class="rest-tip">😴 Sleep 7-9 hours</div>
-                </div>
+                <p>No routine scheduled for today. Go to Plans to set up your training.</p>
                 <button class="btn btn-rest" onclick="completeRestDay()">Mark Rest Day ✓</button>
             </div>`;
         return;
     }
 
+    const routine = todayRoutine.routine;
+    const plan = todayRoutine.plan;
+    const exercises = routine.exercises;
+
     const completedExercises = Object.keys(today.exercises || {}).filter(k => {
         const sets = today.exercises[k];
-        return sets && sets.length > 0;
+        return sets && sets.some(s => s.done);
     });
-    const totalExercises = plan.exercises.length;
-    const pct = Math.round((completedExercises.length / totalExercises) * 100);
+    const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
+    const completedSets = Object.values(today.exercises || {}).reduce((s, sets) => s + sets.filter(x => x.done).length, 0);
+    const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
     let html = `
         <div class="workout-header">
@@ -237,41 +279,42 @@ function renderToday() {
         </div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${plan.color}"></div></div>
         <p class="workout-meta">
-            ${totalExercises} exercises · ${plan.exercises.reduce((s, e) => s + e.sets, 0)} total sets · 
-            2-3 min rest between sets
+            ${routine.name} · ${exercises.length} exercises · ${totalSets} sets · ${completedSets}/${totalSets} sets done
         </p>`;
 
-    plan.exercises.forEach((ex, idx) => {
+    exercises.forEach((ex, idx) => {
         const log = getExerciseLog(getDateKey(), idx);
-        const isDone = log && log.length > 0;
-        const setsHtml = renderSets(ex, idx, log);
+        const setsDone = log ? log.filter(s => s.done).length : 0;
+        const allDone = setsDone === ex.sets;
 
         html += `
             <div class="exercise-card" id="exercise-${idx}">
-                <div class="exercise-header ${isDone ? 'done' : ''}" onclick="toggleExercise(${idx})">
+                <div class="exercise-header ${allDone ? 'done' : ''}" onclick="toggleExerciseBody(${idx})">
                     <div>
                         <h3>${ex.name}</h3>
-                        <p class="exercise-target">${ex.sets} sets × ${ex.reps} reps · ${ex.rest} rest</p>
+                        <p class="exercise-target">${ex.sets} sets × ${ex.reps} · ${ex.rest} rest</p>
                         ${ex.notes ? `<p class="exercise-notes">📝 ${ex.notes}</p>` : ''}
                     </div>
-                    <span class="exercise-check">${isDone ? '✅' : '⬜'}</span>
+                    <div class="exercise-check">
+                        <span class="sets-counter">${setsDone}/${ex.sets}</span>
+                    </div>
                 </div>
-                <div class="exercise-body" id="exercise-body-${idx}" style="display:${isDone ? 'block' : 'none'}">
-                    ${setsHtml}
+                <div class="exercise-body" id="exercise-body-${idx}" style="display:${allDone ? 'block' : 'none'}">
+                    ${renderSets(ex, idx, log)}
                 </div>
             </div>`;
     });
 
-    container.innerHTML = html;
-
-    if (today.startTime && !today.completed) {
-        container.innerHTML += `<button class="btn btn-finish" onclick="finishWorkout()">🏁 Finish Workout</button>`;
+    if (completedSets > 0 && !today.completed) {
+        html += `<button class="btn btn-finish" onclick="finishWorkout()">🏁 Finish Workout</button>`;
     }
+
+    document.getElementById('today-workout').innerHTML = html;
 }
 
 function renderSets(ex, idx, log) {
-    // Reps auto-filled from plan! User only needs to enter weight
     let html = '<div class="sets-container">';
+
     for (let i = 0; i < ex.sets; i++) {
         const set = log ? log[i] : null;
         const weight = set ? set.weight : '';
@@ -279,246 +322,141 @@ function renderSets(ex, idx, log) {
         const rir = set ? set.rir : '';
         const done = set ? set.done : false;
 
-        // Auto-fill reps from plan if not already logged
+        // Auto-fill reps from plan
         const defaultReps = getSetReps(ex.reps, ex.sets, i);
 
+        // Generate weight presets (previous + next common increments)
+        const presets = getWeightPresets();
+        let presetBtns = '';
+        presets.forEach(p => {
+            presetBtns += `<button class="weight-preset" onclick="setWeight(${idx},${i},'${p}')">${p}</button>`;
+        });
+
         html += `
-            <div class="set-row ${done ? 'set-done' : ''}" style="${done ? 'opacity:0.5' : ''}">
+            <div class="set-row ${done ? 'set-done' : ''}" id="set-${idx}-${i}">
                 <span class="set-num">Set ${i + 1}</span>
-                <input type="number" class="set-input weight-input" placeholder="lbs" 
-                    value="${weight}" oninput="autoSaveSet(${idx}, ${i}, 'weight', this.value)" 
-                    ${done ? 'disabled' : ''}>
-                <input type="number" class="set-input reps-input" placeholder="${defaultReps}" 
-                    value="${reps}" oninput="autoSaveSet(${idx}, ${i}, 'reps', this.value)" 
-                    ${done ? 'disabled' : ''}>
-                <input type="number" class="set-input rir-input" placeholder="RIR" 
-                    value="${rir}" oninput="autoSaveSet(${idx}, ${i}, 'rir', this.value)" 
-                    ${done ? 'disabled' : ''}>
+                <div class="set-inputs">
+                    <input type="number" class="set-input weight-input" placeholder="lbs" 
+                        value="${weight}" oninput="autoSaveSet(${idx}, ${i}, 'weight', this.value)"
+                        onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
+                        ${done ? 'disabled' : ''} aria-label="Weight">
+                    <button class="btn-weight-preset" onclick="openWeightPreset(${idx},${i})" title="Quick weights">⚡</button>
+                    <input type="number" class="set-input reps-input" placeholder="${defaultReps}" 
+                        value="${reps}" oninput="autoSaveSet(${idx}, ${i}, 'reps', this.value)"
+                        onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
+                        ${done ? 'disabled' : ''} aria-label="Reps">
+                    <input type="number" class="set-input rir-input" placeholder="RIR" 
+                        value="${rir}" oninput="autoSaveSet(${idx}, ${i}, 'rir', this.value)"
+                        onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
+                        ${done ? 'disabled' : ''} aria-label="RIR" title="Reps in reserve">
+                </div>
                 <button class="btn-set ${done ? 'btn-done' : 'btn-check'}" 
                     onclick="toggleSet(${idx}, ${i})" ${done ? 'disabled' : ''}>
                     ${done ? '✓' : '○'}
                 </button>
+                ${!done ? `<button class="btn-set-next" onclick="advanceToSet(${idx}, ${i})" title="Next set">⏭</button>` : ''}
             </div>`;
     }
+
     html += '</div>';
     return html;
 }
 
-// Parse reps spec and return rep count for a given set index
-// e.g. "15, 15, 12, 12, 10" → for set 0 returns "15"
-// e.g. "12-15" → returns "12-15"
-// e.g. "to failure" → returns "failure"
+// ─── Quick Set Entry Helpers ─────────────────────────────────────────
+function handleSetKey(event, exerciseIdx, setIdx, totalSets) {
+    // Enter: toggle current set done and advance
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const setRow = document.getElementById(`set-${exerciseIdx}-${setIdx}`);
+        if (setRow) {
+            const doneBtn = setRow.querySelector('.btn-set:not(:disabled)');
+            if (doneBtn) {
+                doneBtn.click();
+                // Auto-advance to next set
+                if (setIdx < totalSets - 1) {
+                    setTimeout(() => advanceToSet(exerciseIdx, setIdx), 100);
+                }
+            }
+        }
+    }
+    // Arrow Up/Down: navigate between set rows
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        advanceToSet(exerciseIdx, setIdx);
+    }
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (setIdx > 0) {
+            const prevRow = document.getElementById(`set-${exerciseIdx}-${setIdx - 1}`);
+            if (prevRow) {
+                const input = prevRow.querySelector('.weight-input, .reps-input, .rir-input:not(:disabled)');
+                if (input) input.focus();
+            }
+        }
+    }
+}
+
+function advanceToSet(exerciseIdx, currentSetIdx) {
+    const nextIdx = currentSetIdx + 1;
+    const nextRow = document.getElementById(`set-${exerciseIdx}-${nextIdx}`);
+    if (nextRow) {
+        const input = nextRow.querySelector('.weight-input:not(:disabled)');
+        if (input) input.focus();
+    }
+}
+
+function setWeight(exerciseIdx, setIdx, weight) {
+    autoSaveSet(exerciseIdx, setIdx, 'weight', weight);
+    closeWeightModal();
+    // Re-render to show the updated weight
+    setTimeout(() => renderToday(), 50);
+}
+
+function openWeightPreset(exerciseIdx, setIdx) {
+    const presets = getWeightPresets();
+    const body = document.getElementById('weight-preset-body');
+
+    let html = '<div class="preset-grid">';
+    presets.forEach(w => {
+        html += `<button class="preset-btn" onclick="setWeight(${exerciseIdx}, ${setIdx}, ${w})">${w} lbs</button>`;
+    });
+    html += '</div>';
+
+    html += `
+        <div class="preset-custom">
+            <label>Custom presets (comma separated):
+                <input type="text" class="preset-input" value="${presets.join(',')}" 
+                    onchange="updatePresets(this.value)">
+            </label>
+        </div>`;
+
+    body.innerHTML = html;
+    document.getElementById('weight-modal').style.display = 'flex';
+}
+
+function updatePresets(value) {
+    const presets = value.split(',').map(s => {
+        const n = parseInt(s.trim());
+        return isNaN(n) ? 0 : n;
+    }).filter(n => n > 0);
+    saveWeightPresets(presets);
+    openWeightPreset._reopen = true;
+    setTimeout(() => {
+        // Refresh preset display if still open
+    }, 100);
+}
+
 function getSetReps(repsSpec, totalSets, setIdx) {
     if (!repsSpec) return '';
-
-    // Comma-separated: "15, 15, 12, 12, 10"
     if (repsSpec.includes(',')) {
         const parts = repsSpec.split(',').map(s => s.trim());
         return parts[setIdx] || parts[parts.length - 1];
     }
-
-    // Range: "12-15"
-    if (repsSpec.includes('-')) {
-        return repsSpec;
-    }
-
-    // Single number: "15"
-    if (!isNaN(repsSpec)) {
-        return repsSpec;
-    }
-
-    // Special: "to failure", "4-5", etc.
+    if (repsSpec.includes('-')) return repsSpec;
+    if (!isNaN(repsSpec)) return repsSpec;
     return repsSpec;
 }
 
-function renderPlan() {
-    const plans = getPlans();
-    const container = document.getElementById('plan-list');
-    const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-    let html = '';
-    plans.forEach(plan => {
-        const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
-        html += `
-            <div class="day-card" style="border-left-color:${plan.color}">
-                <div class="day-card-header">
-                    <span class="day-icon">${plan.icon}</span>
-                    <div>
-                        <h3>${plan.name}</h3>
-                        <p>${dayNames[plan.dayOfWeek] || 'Custom'} · ${plan.exercises.length} exercises · ${totalSets} sets</p>
-                    </div>
-                    <div class="day-actions">
-                        <button class="btn btn-sm" onclick="openDayPlan('${plan.id}')">View</button>
-                        <button class="btn btn-sm" onclick="editPlan('${plan.id}')">✏️</button>
-                        ${!isDefaultPlan(plan.id) ? `<button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}')">🗑</button>` : ''}
-                    </div>
-                </div>
-            </div>`;
-    });
-
-    container.innerHTML = html;
-}
-
-function isDefaultPlan(id) {
-    return DEFAULT_PLANS.some(d => d.id === id);
-}
-
-function renderLog() {
-    const logs = getWorkoutLogs();
-    const container = document.getElementById('log-list');
-
-    if (logs.length === 0) {
-        container.innerHTML = '<p class="muted">No workouts logged yet. Complete your first workout to see it here.</p>';
-        return;
-    }
-
-    let html = '';
-    logs.forEach(log => {
-        html += `
-            <div class="log-entry" style="border-left:3px solid ${log.planColor}">
-                <div class="log-date">${log.planIcon} ${log.planName}</div>
-                <div class="log-detail">${log.exerciseCount} exercises · ${log.totalSets} sets</div>
-                <div class="log-time">${formatTime(log.startTime)}${log.endTime ? ' → ' + formatTime(log.endTime) : ''}</div>
-            </div>`;
-    });
-
-    container.innerHTML = html;
-}
-
-function renderProgress() {
-    const container = document.getElementById('progress-content');
-    const logs = getWorkoutLogs();
-    const goals = getGoals();
-    const weeklyTarget = goals.targetWorkoutsPerWeek;
-    const weeklyCount = getWeeklyCount();
-    const weeklyPct = Math.min(100, Math.round((weeklyCount / weeklyTarget) * 100));
-
-    const totalWorkouts = logs.length;
-    const totalSets = logs.reduce((s, l) => s + l.totalSets, 0);
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentLogs = logs.filter(l => new Date(l.date) >= thirtyDaysAgo);
-
-    let html = `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">${totalWorkouts}</div>
-                <div class="stat-label">Total Workouts</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${totalSets}</div>
-                <div class="stat-label">Total Sets</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${weeklyCount}/${weeklyTarget}</div>
-                <div class="stat-label">This Week</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${recentLogs.length}</div>
-                <div class="stat-label">Last 30 Days</div>
-            </div>
-        </div>
-
-        <div class="progress-section">
-            <h3>Weekly Goal</h3>
-            <div class="progress-bar"><div class="progress-fill" style="width:${weeklyPct}%"></div></div>
-            <p class="progress-text">${weeklyCount} of ${weeklyTarget} workouts this week</p>
-        </div>`;
-
-    html += '<div class="activity-chart"><h3>Last 7 Days</h3><div class="bars">';
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateKey = d.toISOString().split("T")[0];
-        const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
-        const log = logs.find(l => l.date === dateKey);
-        const hasWorkout = !!log;
-        html += `
-            <div class="bar ${hasWorkout ? 'bar-active' : ''}">
-                <div class="bar-fill" style="height:${hasWorkout ? '100%' : '10%'}"></div>
-                <span class="bar-label">${dayName}</span>
-            </div>`;
-    }
-    html += '</div></div>';
-
-    container.innerHTML = html;
-}
-
-function renderGoals() {
-    const container = document.getElementById('goals-content');
-    const goals = getGoals();
-    const weeklyTarget = goals.targetWorkoutsPerWeek;
-    const weeklyCount = getWeeklyCount();
-    const weeklyPct = Math.min(100, Math.round((weeklyCount / weeklyTarget) * 100));
-
-    let html = `
-        <div class="goal-item">
-            <div class="goal-header">
-                <span>🎯 Weekly Workout Target</span>
-                <span class="goal-value">${weeklyCount}/${weeklyTarget}</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill" style="width:${weeklyPct}%"></div></div>
-            <button class="btn btn-sm" onclick="editWeeklyTarget()">Edit target</button>
-        </div>
-        
-        <div class="goal-item">
-            <div class="goal-header">
-                <span>⚖️ Current Bodyweight</span>
-                <span class="goal-value">${goals.bodyweight ? goals.bodyweight + ' ' + goals.bodyweightUnit : 'Not set'}</span>
-            </div>
-            <button class="btn btn-sm" onclick="editBodyweight()">Update</button>
-        </div>
-        
-        <div class="goal-item">
-            <div class="goal-header">
-                <span>📝 Goals & Notes</span>
-            </div>
-            <textarea class="notes-area" placeholder="e.g., Gain 10lbs on bench, drop to 15% bodyfat..." 
-                onchange="saveGoalNotes(this.value)">${goals.notes || ''}</textarea>
-        </div>`;
-
-    container.innerHTML = html;
-}
-
-function renderSettings() {
-    const container = document.getElementById('settings-content');
-    const data = loadData();
-    const logCount = Object.keys(data).filter(k => !['plans','goals'].includes(k)).length;
-
-    let html = `
-        <div class="setting-item">
-            <span>📊 Total Entries</span>
-            <span>${logCount} days logged</span>
-        </div>
-        <div class="setting-item">
-            <span>💾 Storage</span>
-            <span>${(new Blob([JSON.stringify(data)]).size / 1024).toFixed(1)} KB</span>
-        </div>
-        <div class="setting-item">
-            <span>🔄 Export Data</span>
-            <button class="btn btn-sm" onclick="exportData()">Download JSON</button>
-        </div>
-        <div class="setting-item">
-            <span>📥 Import Data</span>
-            <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Upload JSON</button>
-            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-        </div>
-        <div class="setting-item">
-            <span>📋 Reset Plans to Default</span>
-            <button class="btn btn-sm" onclick="resetPlans()">Reset</button>
-        </div>
-        <div class="setting-item danger">
-            <span>🗑️ Clear All Data</span>
-            <button class="btn btn-sm btn-danger" onclick="clearAllData()">Reset Everything</button>
-        </div>
-        <p class="muted" style="margin-top:20px">Workout Tracker v2.0 — Data stored locally in your browser</p>`;
-
-    container.innerHTML = html;
-}
-
-// ─── Actions ─────────────────────────────────────────────────────────
-// Save without re-rendering (for oninput - keeps cursor position)
 function autoSaveSet(exerciseIdx, setIdx, field, value) {
     const date = getDateKey();
     const log = getExerciseLog(date, exerciseIdx);
@@ -526,41 +464,92 @@ function autoSaveSet(exerciseIdx, setIdx, field, value) {
     if (!sets[setIdx]) sets[setIdx] = { done: false };
     sets[setIdx][field] = value;
     saveExerciseLog(date, exerciseIdx, sets);
-}
-
-function saveSet(exerciseIdx, setIdx, field, value, render = true) {
-    const date = getDateKey();
-    const log = getExerciseLog(date, exerciseIdx);
-    const sets = log || [];
-
-    if (!sets[setIdx]) {
-        sets[setIdx] = { done: false };
-    }
-    sets[setIdx][field] = value;
-    saveExerciseLog(date, exerciseIdx, sets);
-    if (render) renderToday();
+    // Update UI minimally without full re-render
+    updateSetCount(exerciseIdx);
 }
 
 function toggleSet(exerciseIdx, setIdx) {
     const date = getDateKey();
     const log = getExerciseLog(date, exerciseIdx);
     const sets = log || [];
-
-    if (!sets[setIdx]) {
-        sets[setIdx] = { done: false };
-    }
+    if (!sets[setIdx]) sets[setIdx] = { done: false };
     sets[setIdx].done = !sets[setIdx].done;
     saveExerciseLog(date, exerciseIdx, sets);
-    renderToday();
+
+    // Update just this set row
+    const row = document.getElementById(`set-${exerciseIdx}-${setIdx}`);
+    if (row) {
+        row.classList.toggle('set-done', sets[setIdx].done);
+        const btn = row.querySelector('.btn-set');
+        if (btn) {
+            btn.className = `btn-set ${sets[setIdx].done ? 'btn-done' : 'btn-check'}`;
+            btn.innerHTML = sets[setIdx].done ? '✓' : '○';
+            btn.disabled = sets[setIdx].done;
+            const nextBtn = row.querySelector('.btn-set-next');
+            if (nextBtn) nextBtn.style.display = sets[setIdx].done ? 'inline-flex' : 'none';
+        }
+        // Disable inputs
+        row.querySelectorAll('.set-input:not(:disabled)').forEach(inp => {
+            if (sets[setIdx].done) inp.disabled = true;
+        });
+    }
+
+    updateSetCount(exerciseIdx);
+    updateExerciseHeader(exerciseIdx);
+    updateOverallProgress();
 }
 
-function toggleExercise(idx) {
+function updateSetCount(exerciseIdx) {
+    const ex = getTodayRoutine()?.routine?.exercises[exerciseIdx];
+    if (!ex) return;
+    const log = getExerciseLog(getDateKey(), exerciseIdx);
+    const done = log ? log.filter(s => s.done).length : 0;
+    const counter = document.querySelector(`#exercise-${exerciseIdx} .sets-counter`);
+    if (counter) counter.textContent = `${done}/${ex.sets}`;
+}
+
+function updateExerciseHeader(exerciseIdx) {
+    const header = document.querySelector(`#exercise-${exerciseIdx} .exercise-header`);
+    if (!header) return;
+    const ex = getTodayRoutine()?.routine?.exercises[exerciseIdx];
+    if (!ex) return;
+    const log = getExerciseLog(getDateKey(), exerciseIdx);
+    const done = log ? log.filter(s => s.done).length : 0;
+    const allDone = done === ex.sets;
+    header.classList.toggle('done', allDone);
+}
+
+function updateOverallProgress() {
+    const today = getTodayEntry();
+    const routine = getTodayRoutine();
+    if (!routine) return;
+    const totalSets = routine.routine.exercises.reduce((s, e) => s + e.sets, 0);
+    const completedSets = Object.values(today.exercises || {}).reduce((s, sets) => s + sets.filter(x => x.done).length, 0);
+    const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+
+    const fill = document.querySelector('.progress-fill');
+    const progressSpan = document.querySelector('.workout-progress');
+    const meta = document.querySelector('.workout-meta');
+    if (fill) fill.style.width = pct + '%';
+    if (progressSpan) progressSpan.textContent = pct + '%';
+    if (meta) meta.textContent = `${routine.routine.name} · ${routine.routine.exercises.length} exercises · ${totalSets} sets · ${completedSets}/${totalSets} sets done`;
+
+    // Show/hide finish button
+    const existing = document.querySelector('.btn-finish');
+    if (completedSets > 0 && !today.completed && !existing) {
+        document.getElementById('today-workout').insertAdjacentHTML('beforeend',
+            '<button class="btn btn-finish" onclick="finishWorkout()">🏁 Finish Workout</button>');
+    }
+}
+
+function toggleExerciseBody(idx) {
     const body = document.getElementById(`exercise-body-${idx}`);
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
 }
 
+// ─── Finish Workout ──────────────────────────────────────────────────
 function finishWorkout() {
-    const today = getTodayData();
+    const today = getTodayEntry();
     today.endTime = new Date().toISOString();
     today.completed = true;
     if (today.startTime) {
@@ -577,7 +566,7 @@ function finishWorkout() {
 }
 
 function completeRestDay() {
-    const today = getTodayData();
+    const today = getTodayEntry();
     today.completed = true;
     const data = loadData();
     data[getDateKey()] = today;
@@ -585,6 +574,396 @@ function completeRestDay() {
     renderToday();
     renderLog();
     renderProgress();
+}
+
+// ─── PLANS VIEW ──────────────────────────────────────────────────────
+function renderPlans() {
+    const plans = getPlans();
+    const container = document.getElementById('plan-list');
+    const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    let html = '';
+    plans.forEach(plan => {
+        const totalRoutines = plan.routines.length;
+        const totalExercises = plan.routines.reduce((s, r) => s + r.exercises.length, 0);
+        const totalSets = plan.routines.reduce((s, r) => s + r.exercises.reduce((ss, e) => ss + e.sets, 0), 0);
+        const phaseLabel = plan.phase ? ` · ${plan.phase}` : '';
+        const durLabel = plan.duration ? ` · ${plan.duration}` : '';
+
+        html += `
+            <div class="plan-card" style="border-left-color:${plan.color}">
+                <div class="plan-card-header">
+                    <div class="plan-icon">${plan.icon}</div>
+                    <div>
+                        <h3>${plan.name}</h3>
+                        <p>${totalRoutines} routines · ${totalExercises} exercises · ${totalSets} sets${phaseLabel}${durLabel}</p>
+                    </div>
+                    <div class="plan-actions">
+                        <button class="btn btn-sm" onclick="openRoutineSelector('${plan.id}')">Routines</button>
+                        <button class="btn btn-sm" onclick="editPlan('${plan.id}')">✏️</button>
+                        ${!isDefaultPlan(plan.id) ? `<button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}')">🗑</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function openRoutineSelector(planId) {
+    const plan = getPlanById(planId);
+    if (!plan) return;
+    const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    let html = `
+        <div class="routine-selector">
+            <h3>${plan.icon} ${plan.name} — Routines</h3>
+            ${plan.routines.map(r => {
+                const totalSets = r.exercises.reduce((s, e) => s + e.sets, 0);
+                const today = new Date().getDay();
+                const isToday = r.dayOfWeek === today;
+                return `
+                    <div class="routine-item ${isToday ? 'routine-today' : ''}" 
+                         style="${isToday ? 'border-left:3px solid var(--accent)' : ''}">
+                        <div>
+                            <strong>${r.name} ${isToday ? '📍 Today' : ''}</strong>
+                            <p>${dayNames[r.dayOfWeek]} · ${r.exercises.length} exercises · ${totalSets} sets</p>
+                        </div>
+                        <div class="routine-actions">
+                            <button class="btn btn-sm" onclick="openRoutineEditor('${plan.id}','${r.id}')">Edit</button>
+                            <button class="btn btn-sm btn-primary" onclick="previewRoutine('${plan.id}','${r.id}')">Preview</button>
+                            ${!isDefaultPlan(planId) ? `<button class="btn btn-sm btn-danger" onclick="deleteRoutine('${plan.id}','${r.id}')">🗑</button>` : ''}
+                        </div>
+                    </div>`;
+            }).join('')}
+            <button class="btn btn-primary" onclick="openRoutineEditor('${plan.id}',null)" style="width:100%;margin-top:12px">+ Add Routine</button>
+        </div>`;
+
+    // Show in a modal or inline
+    document.getElementById('plan-list').innerHTML = html + '<button class="btn btn-sm" onclick="renderPlans()" style="margin-top:12px">← Back to Plans</button>';
+}
+
+function previewRoutine(planId, routineId) {
+    const plan = getPlanById(planId);
+    if (!plan) return;
+    const routine = plan.routines.find(r => r.id === routineId);
+    if (!routine) return;
+    const totalSets = routine.exercises.reduce((s, e) => s + e.sets, 0);
+    const text = routine.exercises.map(e => `${e.name} — ${e.sets}×${e.reps}`).join('\n');
+    alert(`${routine.name}\n\n${text}\n\nTotal: ${totalSets} sets`);
+}
+
+// ─── Routine Editor ──────────────────────────────────────────────────
+let currentRoutineEdit = { planId: null, routineId: null };
+
+function openRoutineEditor(planId, routineId) {
+    const plan = getPlanById(planId);
+    currentRoutineEdit = { planId, routineId };
+
+    const isEditing = !!routineId;
+    const routine = isEditing ? plan.routines.find(r => r.id === routineId) : null;
+
+    document.getElementById('routine-editor-title').textContent = isEditing ? `Edit: ${routine.name}` : 'New Routine';
+
+    const dayNames = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const dayOptions = dayNames.map((d, i) => i === 0 ? '' : `<option value="${i}" ${routine && routine.dayOfWeek === i ? 'selected' : ''}>${d}</option>`).join('');
+
+    let exercisesHtml = '';
+    (routine ? routine.exercises : []).forEach((ex, idx) => {
+        exercisesHtml += renderExerciseRow(ex, idx);
+    });
+
+    document.getElementById('routine-editor-content').innerHTML = `
+        <div class="routine-form">
+            <label>
+                Routine Name
+                <input type="text" id="re-name" placeholder="e.g., Back Day" value="${routine ? routine.name : ''}">
+            </label>
+            <label>
+                Day of Week
+                <select id="re-day">${dayOptions}</select>
+            </label>
+
+            <h4 style="margin-top:16px;margin-bottom:8px">Exercises</h4>
+            <div id="re-exercises">${exercisesHtml}</div>
+            <button class="btn btn-sm" onclick="addExerciseRow()" style="width:100%">+ Add Exercise</button>
+
+            <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-primary" onclick="saveRoutine()" style="flex:1">
+                    ${isEditing ? 'Save Changes' : 'Create Routine'}
+                </button>
+                ${isEditing ? `<button class="btn btn-sm btn-danger" onclick="deleteRoutine('${planId}','${routineId}');goBackFromRoutine();">Delete</button>` : ''}
+            </div>
+            <button class="btn btn-sm" onclick="goBackFromRoutine()" style="width:100%;margin-top:8px">Cancel</button>
+        </div>`;
+
+    // Switch to routine editor view
+    showView('routine-editor');
+}
+
+function goBackFromRoutine() {
+    renderPlans();
+    showView('plans');
+}
+
+function renderExerciseRow(ex, idx) {
+    ex = ex || { name: '', sets: 3, reps: '', rest: '90 sec', notes: '' };
+    return `
+        <div class="exercise-row" id="er-${idx}">
+            <input type="text" class="exercise-name-input" placeholder="Exercise name" value="${ex.name}">
+            <input type="number" class="exercise-sets-input" placeholder="Sets" value="${ex.sets}" min="1" max="20">
+            <input type="text" class="exercise-reps-input" placeholder="Reps (15,12,10)" value="${ex.reps}">
+            <input type="text" class="exercise-rest-input" placeholder="Rest" value="${ex.rest}">
+            <button class="btn btn-sm btn-danger" onclick="removeExerciseRow(${idx})">✕</button>
+        </div>`;
+}
+
+function addExerciseRow() {
+    const container = document.getElementById('re-exercises');
+    const idx = Date.now();
+    container.insertAdjacentHTML('beforeend', renderExerciseRow(null, idx));
+}
+
+function removeExerciseRow(idx) {
+    const row = document.getElementById(`er-${idx}`);
+    if (row) row.remove();
+}
+
+function saveRoutine() {
+    const name = document.getElementById('re-name').value.trim();
+    if (!name) { alert('Enter a routine name'); return; }
+
+    const dayOfWeek = parseInt(document.getElementById('re-day').value) || 0;
+    const exerciseRows = document.querySelectorAll('#re-exercises .exercise-row');
+    const exercises = [];
+
+    exerciseRows.forEach(row => {
+        const exName = row.querySelector('.exercise-name-input').value.trim();
+        if (!exName) return;
+        exercises.push({
+            name: exName,
+            sets: parseInt(row.querySelector('.exercise-sets-input').value) || 3,
+            reps: row.querySelector('.exercise-reps-input').value.trim(),
+            rest: row.querySelector('.exercise-rest-input').value.trim() || '90 sec',
+            notes: '',
+        });
+    });
+
+    if (exercises.length === 0) { alert('Add at least one exercise'); return; }
+
+    const plans = getPlans();
+    const planIdx = plans.findIndex(p => p.id === currentRoutineEdit.planId);
+    if (planIdx < 0) return;
+
+    if (currentRoutineEdit.routineId) {
+        // Edit existing
+        const rIdx = plans[planIdx].routines.findIndex(r => r.id === currentRoutineEdit.routineId);
+        if (rIdx >= 0) {
+            plans[planIdx].routines[rIdx] = { ...plans[planIdx].routines[rIdx], name, dayOfWeek, exercises };
+        }
+    } else {
+        // Create new
+        plans[planIdx].routines.push({
+            id: generateId(),
+            name, dayOfWeek, exercises,
+        });
+    }
+
+    savePlans(plans);
+    renderPlans();
+    renderToday();
+}
+
+function deleteRoutine(planId, routineId) {
+    if (!confirm('Delete this routine?')) return;
+    const plans = getPlans();
+    const planIdx = plans.findIndex(p => p.id === planId);
+    if (planIdx < 0) return;
+    plans[planIdx].routines = plans[planIdx].routines.filter(r => r.id !== routineId);
+    savePlans(plans);
+    renderPlans();
+}
+
+// ─── Plan Editor Modal ───────────────────────────────────────────────
+function openCreatePlan() {
+    document.getElementById('plan-editor-title').textContent = 'New Plan';
+    renderPlanEditor(null);
+    document.getElementById('plan-modal').style.display = 'flex';
+}
+
+function editPlan(planId) {
+    const plan = getPlanById(planId);
+    if (!plan) return;
+    document.getElementById('plan-editor-title').textContent = 'Edit Plan: ' + plan.name;
+    renderPlanEditor(plan);
+    document.getElementById('plan-modal').style.display = 'flex';
+}
+
+function renderPlanEditor(plan) {
+    const isEditing = !!plan;
+    const iconOptions = ICONS.map(icon => `<option value="${icon}" ${plan && plan.icon === icon ? 'selected' : ''}>${icon}</option>`).join('');
+    const colorOptions = COLORS.map(color => `<option value="${color}" ${plan && plan.color === color ? 'selected' : ''}>${color}</option>`).join('');
+
+    document.getElementById('plan-editor-body').innerHTML = `
+        <div class="plan-form">
+            <label>Plan Name
+                <input type="text" id="pe-name" placeholder="e.g., Bulking Phase 2026" value="${plan ? plan.name : ''}">
+            </label>
+            <div class="plan-row">
+                <label>Icon
+                    <select id="pe-icon">${iconOptions}</select>
+                </label>
+                <label>Color
+                    <select id="pe-color">${colorOptions}</select>
+                </label>
+                <label>Phase
+                    <input type="text" id="pe-phase" placeholder="bulking/cutting/sport" value="${plan ? plan.phase || '' : ''}">
+                </label>
+            </div>
+            <label>Duration (e.g., 8-12 weeks)
+                <input type="text" id="pe-duration" placeholder="e.g., 8-12 weeks" value="${plan ? plan.duration || '' : ''}">
+            </label>
+
+            <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-primary" onclick="savePlan('${plan ? plan.id : ''}')" style="flex:1">
+                    ${isEditing ? 'Save Changes' : 'Create Plan'}
+                </button>
+                ${isEditing ? `<button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}');closePlanModal();">Delete</button>` : ''}
+            </div>
+        </div>`;
+}
+
+function savePlan(editId) {
+    const name = document.getElementById('pe-name').value.trim();
+    if (!name) { alert('Enter a plan name'); return; }
+
+    const icon = document.getElementById('pe-icon').value;
+    const color = document.getElementById('pe-color').value;
+    const phase = document.getElementById('pe-phase').value.trim();
+    const duration = document.getElementById('pe-duration').value.trim();
+
+    const plans = getPlans();
+
+    if (editId) {
+        const idx = plans.findIndex(p => p.id === editId);
+        if (idx >= 0) {
+            plans[idx].name = name;
+            plans[idx].icon = icon;
+            plans[idx].color = color;
+            plans[idx].phase = phase;
+            plans[idx].duration = duration;
+        }
+    } else {
+        plans.push({
+            id: generateId(),
+            name, icon, color,
+            phase, duration,
+            routines: [],
+        });
+    }
+
+    savePlans(plans);
+    closePlanModal();
+    renderPlans();
+}
+
+function deletePlan(planId) {
+    if (!confirm('Delete this plan and all its routines?')) return;
+    const plans = getPlans().filter(p => p.id !== planId);
+    savePlans(plans);
+    renderPlans();
+}
+
+function closePlanModal() { document.getElementById('plan-modal').style.display = 'none'; }
+function closeWeightModal() { document.getElementById('weight-modal').style.display = 'none'; }
+
+// ─── LOG VIEW ────────────────────────────────────────────────────────
+function renderLog() {
+    const logs = getWorkoutLogs();
+    const container = document.getElementById('log-list');
+
+    if (logs.length === 0) {
+        container.innerHTML = '<p class="muted">No workouts logged yet.</p>';
+        return;
+    }
+
+    container.innerHTML = logs.map(log => `
+        <div class="log-entry" style="border-left:3px solid ${log.planColor}">
+            <div class="log-date">${log.planName} — ${log.routineName}</div>
+            <div class="log-detail">${log.exerciseCount} exercises · ${log.totalSets} sets</div>
+            <div class="log-time">${formatTime(log.startTime)}${log.endTime ? ' → ' + formatTime(log.endTime) : ''}</div>
+        </div>
+    `).join('');
+}
+
+// ─── PROGRESS VIEW ───────────────────────────────────────────────────
+function renderProgress() {
+    const logs = getWorkoutLogs();
+    const goals = getGoals();
+    const weeklyTarget = goals.targetWorkoutsPerWeek;
+    const weeklyCount = getWeeklyCount();
+    const weeklyPct = Math.min(100, Math.round((weeklyCount / weeklyTarget) * 100));
+    const totalWorkouts = logs.length;
+    const totalSets = logs.reduce((s, l) => s + l.totalSets, 0);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentLogs = logs.filter(l => new Date(l.date) >= thirtyDaysAgo);
+
+    let html = `
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value">${totalWorkouts}</div><div class="stat-label">Total Workouts</div></div>
+            <div class="stat-card"><div class="stat-value">${totalSets}</div><div class="stat-label">Total Sets</div></div>
+            <div class="stat-card"><div class="stat-value">${weeklyCount}/${weeklyTarget}</div><div class="stat-label">This Week</div></div>
+            <div class="stat-card"><div class="stat-value">${recentLogs.length}</div><div class="stat-label">Last 30 Days</div></div>
+        </div>
+        <div class="progress-section">
+            <h3>Weekly Goal</h3>
+            <div class="progress-bar"><div class="progress-fill" style="width:${weeklyPct}%"></div></div>
+            <p class="progress-text">${weeklyCount} of ${weeklyTarget} workouts this week</p>
+        </div>
+        <div class="activity-chart"><h3>Last 7 Days</h3><div class="bars">`;
+
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().split("T")[0];
+        const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+        const hasWorkout = logs.some(l => l.date === dateKey);
+        html += `<div class="bar ${hasWorkout ? 'bar-active' : ''}"><div class="bar-fill" style="height:${hasWorkout ? '100%' : '10%'}"></div><span class="bar-label">${dayName}</span></div>`;
+    }
+
+    html += '</div></div>';
+    document.getElementById('progress-content').innerHTML = html;
+}
+
+// ─── GOALS VIEW ──────────────────────────────────────────────────────
+function renderGoals() {
+    const goals = getGoals();
+    const weeklyTarget = goals.targetWorkoutsPerWeek;
+    const weeklyCount = getWeeklyCount();
+    const weeklyPct = Math.min(100, Math.round((weeklyCount / weeklyTarget) * 100));
+
+    document.getElementById('goals-content').innerHTML = `
+        <div class="goal-item">
+            <div class="goal-header">
+                <span>🎯 Weekly Workout Target</span>
+                <span class="goal-value">${weeklyCount}/${weeklyTarget}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${weeklyPct}%"></div></div>
+            <button class="btn btn-sm" onclick="editWeeklyTarget()">Edit</button>
+        </div>
+        <div class="goal-item">
+            <div class="goal-header">
+                <span>⚖️ Current Bodyweight</span>
+                <span class="goal-value">${goals.bodyweight ? goals.bodyweight + ' ' + goals.bodyweightUnit : 'Not set'}</span>
+            </div>
+            <button class="btn btn-sm" onclick="editBodyweight()">Update</button>
+        </div>
+        <div class="goal-item">
+            <div class="goal-header"><span>📝 Goals & Notes</span></div>
+            <textarea class="notes-area" placeholder="e.g., Gain 10lbs on bench, drop to 15% bodyfat..." 
+                onchange="saveGoalNotes(this.value)">${goals.notes || ''}</textarea>
+        </div>`;
 }
 
 function editBodyweight() {
@@ -614,6 +993,21 @@ function saveGoalNotes(notes) {
     saveGoals(goals);
 }
 
+// ─── SETTINGS VIEW ───────────────────────────────────────────────────
+function renderSettings() {
+    const data = loadData();
+    const logCount = Object.keys(data).filter(k => !['plans','goals','weightPresets'].includes(k)).length;
+
+    document.getElementById('settings-content').innerHTML = `
+        <div class="setting-item"><span>📊 Total Entries</span><span>${logCount} days logged</span></div>
+        <div class="setting-item"><span>💾 Storage</span><span>${(new Blob([JSON.stringify(data)]).size / 1024).toFixed(1)} KB</span></div>
+        <div class="setting-item"><span>🔄 Export Data</span><button class="btn btn-sm" onclick="exportData()">Download JSON</button></div>
+        <div class="setting-item"><span>📥 Import Data</span><button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Upload JSON</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"></div>
+        <div class="setting-item"><span>📋 Reset Plans to Default</span><button class="btn btn-sm" onclick="resetPlans()">Reset</button></div>
+        <div class="setting-item danger"><span>🗑️ Clear All Data</span><button class="btn btn-sm btn-danger" onclick="clearAllData()">Reset Everything</button></div>
+        <p class="muted" style="margin-top:20px">Workout Tracker v3.0 — Data stored locally in your browser</p>`;
+}
+
 function exportData() {
     const data = loadData();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -632,22 +1026,17 @@ function importData(event) {
     reader.onload = (e) => {
         try {
             const imported = JSON.parse(e.target.result);
-            // Merge: keep existing plans, add imported data
             const data = loadData();
             if (imported.plans) data.plans = imported.plans;
             if (imported.goals) data.goals = imported.goals;
-            // Merge daily logs
+            if (imported.weightPresets) data.weightPresets = imported.weightPresets;
             for (const [key, value] of Object.entries(imported)) {
-                if (!['plans', 'goals'].includes(key) && typeof value === 'object') {
-                    data[key] = value;
-                }
+                if (!['plans','goals','weightPresets'].includes(key) && typeof value === 'object') data[key] = value;
             }
             saveData(data);
             init();
             alert('Data imported successfully!');
-        } catch {
-            alert('Invalid file format');
-        }
+        } catch { alert('Invalid file format'); }
     };
     reader.readAsText(file);
 }
@@ -668,161 +1057,19 @@ function resetPlans() {
     }
 }
 
-// ─── Plan Editor ─────────────────────────────────────────────────────
-function openCreatePlan() {
-    const planEditorTitle = document.getElementById('plan-editor-title');
-    planEditorTitle.textContent = 'New Plan';
-    renderPlanEditor(null);
-    document.getElementById('plan-modal').style.display = 'flex';
-}
-
-function editPlan(planId) {
-    const plan = getPlanById(planId);
-    if (!plan) return;
-    document.getElementById('plan-editor-title').textContent = 'Edit Plan: ' + plan.name;
-    renderPlanEditor(plan);
-    document.getElementById('plan-modal').style.display = 'flex';
-}
-
-function renderPlanEditor(plan) {
-    const body = document.getElementById('plan-editor-body');
-    const isEditing = !!plan;
-
-    const dayNames = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    const dayOptions = dayNames.map((d, i) => i === 0 ? '' : `<option value="${i}" ${plan && plan.dayOfWeek === i ? 'selected' : ''}>${d}</option>`).join('');
-    const iconOptions = ICONS.map(icon => `<option value="${icon}" ${plan && plan.icon === icon ? 'selected' : ''}>${icon}</option>`).join('');
-    const colorOptions = COLORS.map(color => `<option value="${color}" ${plan && plan.color === color ? 'selected' : ''}>${color}</option>`).join('');
-
-    let exercisesHtml = '';
-    const exercises = plan ? plan.exercises : [];
-    exercises.forEach((ex, idx) => {
-        exercisesHtml += renderExerciseRow(ex, idx);
-    });
-
-    body.innerHTML = `
-        <div class="plan-form">
-            <label>Plan Name
-                <input type="text" id="pe-name" placeholder="e.g., Push Day" value="${plan ? plan.name : ''}">
-            </label>
-            <div class="plan-row">
-                <label>Day
-                    <select id="pe-day">${dayOptions}</select>
-                </label>
-                <label>Icon
-                    <select id="pe-icon">${iconOptions}</select>
-                </label>
-                <label>Color
-                    <select id="pe-color">${colorOptions}</select>
-                </label>
-            </div>
-
-            <h4 style="margin-top:16px;margin-bottom:8px">Exercises</h4>
-            <div id="pe-exercises">${exercisesHtml}</div>
-            <button class="btn btn-sm" onclick="addExerciseRow()" style="margin-top:8px;width:100%">+ Add Exercise</button>
-
-            <div style="display:flex;gap:8px;margin-top:16px">
-                <button class="btn btn-primary" onclick="savePlan('${plan ? plan.id : ''}')" style="flex:1">
-                    ${isEditing ? 'Save Changes' : 'Create Plan'}
-                </button>
-                ${isEditing ? `<button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}');closePlanModal();">Delete</button>` : ''}
-            </div>
-        </div>`;
-}
-
-function renderExerciseRow(ex, idx) {
-    ex = ex || { name: '', sets: 3, reps: '', rest: '90 sec', notes: '' };
-    return `
-        <div class="exercise-row" id="er-${idx}">
-            <input type="text" class="exercise-name-input" placeholder="Exercise name" value="${ex.name}">
-            <input type="number" class="exercise-sets-input" placeholder="Sets" value="${ex.sets}" min="1" max="20">
-            <input type="text" class="exercise-reps-input" placeholder="Reps (15,12,10)" value="${ex.reps}">
-            <input type="text" class="exercise-rest-input" placeholder="Rest" value="${ex.rest}">
-            <button class="btn btn-sm btn-danger" onclick="removeExerciseRow(${idx})">✕</button>
-        </div>`;
-}
-
-let exerciseRowCounter = 0;
-
-function addExerciseRow() {
-    const container = document.getElementById('pe-exercises');
-    const idx = Date.now();
-    exerciseRowCounter++;
-    container.insertAdjacentHTML('beforeend', renderExerciseRow(null, idx));
-}
-
-function removeExerciseRow(idx) {
-    const row = document.getElementById(`er-${idx}`);
-    if (row) row.remove();
-}
-
-function savePlan(editId) {
-    const name = document.getElementById('pe-name').value.trim();
-    if (!name) { alert('Enter a plan name'); return; }
-
-    const dayOfWeek = parseInt(document.getElementById('pe-day').value) || 0;
-    const icon = document.getElementById('pe-icon').value;
-    const color = document.getElementById('pe-color').value;
-
-    const exerciseRows = document.querySelectorAll('#pe-exercises .exercise-row');
-    const exercises = [];
-    exerciseRows.forEach(row => {
-        const exName = row.querySelector('.exercise-name-input').value.trim();
-        if (!exName) return;
-        exercises.push({
-            name: exName,
-            sets: parseInt(row.querySelector('.exercise-sets-input').value) || 3,
-            reps: row.querySelector('.exercise-reps-input').value.trim(),
-            rest: row.querySelector('.exercise-rest-input').value.trim() || '90 sec',
-            notes: '',
-        });
-    });
-
-    if (exercises.length === 0) { alert('Add at least one exercise'); return; }
-
-    const plans = getPlans();
-
-    if (editId) {
-        // Edit existing
-        const idx = plans.findIndex(p => p.id === editId);
-        if (idx >= 0) {
-            plans[idx] = { ...plans[idx], name, dayOfWeek, icon, color, exercises };
-        }
-    } else {
-        // Create new
-        plans.push({
-            id: generateId(),
-            name, dayOfWeek, icon, color, exercises,
-        });
-    }
-
-    savePlans(plans);
-    closePlanModal();
-    renderPlan();
-}
-
-function deletePlan(planId) {
-    if (!confirm('Delete this plan?')) return;
-    const plans = getPlans().filter(p => p.id !== planId);
-    savePlans(plans);
-    renderPlan();
-}
-
-function openDayPlan(planId) {
-    const plan = getPlanById(planId);
-    if (!plan) return;
-    const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
-    const planText = plan.exercises.map(e => `${e.name} — ${e.sets}×${e.reps}`).join('\n');
-    alert(`${plan.icon} ${plan.name}\n\n${planText}\n\nTotal: ${totalSets} sets`);
+// ─── Helpers ─────────────────────────────────────────────────────────
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(`view-${viewId}`).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tab = document.querySelector(`.tab[data-view="${viewId}"]`);
+    if (tab) tab.classList.add('active');
 }
 
 function formatTime(isoStr) {
     if (!isoStr) return '';
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
-
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-function closePlanModal() { document.getElementById('plan-modal').style.display = 'none'; }
 
 // ─── Tab Navigation ──────────────────────────────────────────────────
 function setupTabs() {
@@ -839,8 +1086,8 @@ function setupTabs() {
 
 // Close modals on backdrop click
 document.addEventListener('click', (e) => {
-    if (e.target.id === 'modal') closeModal();
     if (e.target.id === 'plan-modal') closePlanModal();
+    if (e.target.id === 'weight-modal') closeWeightModal();
 });
 
 // ─── Init ────────────────────────────────────────────────────────────
