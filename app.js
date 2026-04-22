@@ -1,4 +1,4 @@
-// ─── Workout Tracker v3.2: Plans → Routines → Exercises ────
+// ─── Workout Tracker v3.3: Plans → Routines → Exercises ────
 // Data hierarchy: Plans → Routines → Exercises
 //
 // Features:
@@ -6,6 +6,10 @@
 //   - Rest timer: auto-starts on set complete, countdown, vibration + visual alert
 //   - Last workout comparison: shows "Last: 225×12" next to set input
 //   - Edit completed sets: tap a checked set to adjust weight/reps
+//   - Volume tracking: total tons per exercise over time with mini chart
+//   - PR celebration: visual pop when you beat your personal record
+//   - Warm-up calculator: auto-suggests warm-up sets (50%, 70% of first working set)
+//   - Plan view mini-calendar: shows which days have routines scheduled
 //   - Plans: create/edit/delete multi-month training programs
 //   - Auto-fill reps from plan spec
 //   - All input saves instantly to localStorage
@@ -523,6 +527,17 @@ function renderToday() {
     }
 
     document.getElementById('today-workout').innerHTML = html;
+
+    // Render volume chart for top exercise in today's routine
+    const volContainer = document.getElementById('volume-chart-container');
+    if (todayRoutine && today.completed) {
+        const ex = todayRoutine.routine.exercises[0];
+        if (ex) {
+            volContainer.innerHTML = renderVolumeChart(ex.name);
+        }
+    } else {
+        volContainer.innerHTML = '';
+    }
 }
 
 function renderSets(ex, idx, log) {
@@ -723,6 +738,14 @@ function toggleSet(exerciseIdx, setIdx) {
     } else {
         stopRestTimer();
     }
+
+    // Check for PR on checked sets
+    if (sets[setIdx].done) {
+        const ex = getTodayRoutine()?.routine?.exercises[exerciseIdx];
+        if (ex && sets[setIdx].weight && sets[setIdx].reps) {
+            celebratePR(ex.name, sets[setIdx].weight, sets[setIdx].reps);
+        }
+    }
 }
 
 function editSet(exerciseIdx, setIdx) {
@@ -884,6 +907,22 @@ function renderPlans() {
         const phaseLabel = plan.phase ? ` · ${plan.phase}` : '';
         const durLabel = plan.duration ? ` · ${plan.duration}` : '';
 
+        // Build mini calendar showing which days have routines
+        const today = new Date().getDay();
+        const calendarDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        let calHtml = '<div class="plan-calendar"><div class="calendar-row">';
+        calendarDays.forEach((dayName, idx) => {
+            const dayNum = idx + 1;
+            const routine = plan.routines.find(r => r.dayOfWeek === dayNum);
+            const isToday = dayNum === today;
+            const routineName = routine ? routine.name : '';
+            calHtml += `<div class="calendar-day ${isToday ? 'calendar-today' : ''} ${routine ? 'calendar-active' : ''}" title="${routineName || 'Rest day'}">
+                <span class="calendar-day-label">${dayName[0]}</span>
+                ${routine ? `<span class="calendar-dot">${plan.icon}</span>` : ''}
+            </div>`;
+        });
+        calHtml += '</div></div>';
+
         html += `
             <div class="plan-card" style="border-left-color:${plan.color}">
                 <div class="plan-card-header">
@@ -898,6 +937,7 @@ function renderPlans() {
                         ${!isDefaultPlan(plan.id) ? `<button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}')">🗑</button>` : ''}
                     </div>
                 </div>
+                ${calHtml}
             </div>`;
     });
 
@@ -1199,12 +1239,22 @@ function renderProgress() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentLogs = logs.filter(l => new Date(l.date) >= thirtyDaysAgo);
 
+    // Volume stats
+    const volumes = getVolumeHistory();
+    const volumeEntries = Object.entries(volumes).sort((a, b) => b[1] - a[1]);
+    const topVolumeExercise = volumeEntries.length > 0 ? volumeEntries[0] : null;
+    const topVolume = topVolumeExercise ? Math.round(topVolumeExercise[1]) : 0;
+
+    // PR stats
+    const prs = getPRs();
+    const prCount = Object.keys(prs).filter(k => !k.endsWith('_reps')).length;
+
     let html = `
         <div class="stats-grid">
             <div class="stat-card"><div class="stat-value">${totalWorkouts}</div><div class="stat-label">Total Workouts</div></div>
             <div class="stat-card"><div class="stat-value">${totalSets}</div><div class="stat-label">Total Sets</div></div>
-            <div class="stat-card"><div class="stat-value">${weeklyCount}/${weeklyTarget}</div><div class="stat-label">This Week</div></div>
-            <div class="stat-card"><div class="stat-value">${recentLogs.length}</div><div class="stat-label">Last 30 Days</div></div>
+            <div class="stat-card"><div class="stat-value">${prCount}</div><div class="stat-label">PRs Hit</div></div>
+            <div class="stat-card"><div class="stat-value">${topVolume > 0 ? topVolume + 'lbs' : '—'}</div><div class="stat-label">Peak Volume</div></div>
         </div>
         <div class="progress-section">
             <h3>Weekly Goal</h3>
@@ -1225,6 +1275,24 @@ function renderProgress() {
     }
 
     html += '</div></div>';
+
+    // Volume breakdown by exercise (top 5)
+    if (topVolumeExercise) {
+        html += '<div class="volume-section"><h3>Volume by Exercise</h3><div class="volume-list">';
+        volumeEntries.slice(0, 5).forEach(([key, vol]) => {
+            const parts = key.split('-');
+            const exName = parts.slice(1).join('-');
+            const pct = (vol / volumeEntries[0][1]) * 100;
+            html += `
+                <div class="volume-row">
+                    <span class="volume-ex-name">${exName}</span>
+                    <div class="volume-bar-track"><div class="volume-bar-fill" style="width:${pct}%"></div></div>
+                    <span class="volume-val">${Math.round(vol)} lbs</span>
+                </div>`;
+        });
+        html += '</div></div>';
+    }
+
     document.getElementById('progress-content').innerHTML = html;
 }
 
@@ -1297,7 +1365,7 @@ function renderSettings() {
         <div class="setting-item"><span>📥 Import Data</span><button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Upload JSON</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"></div>
         <div class="setting-item"><span>📋 Reset Plans to Default</span><button class="btn btn-sm" onclick="resetPlans()">Reset</button></div>
         <div class="setting-item danger"><span>🗑️ Clear All Data</span><button class="btn btn-sm btn-danger" onclick="clearAllData()">Reset Everything</button></div>
-        <p class="muted" style="margin-top:20px">SetStack v3.2 — Data stored locally in your browser</p>`;
+        <p class="muted" style="margin-top:20px">SetStack v3.3 — Data stored locally in your browser</p>`;
 }
 
 function exportData() {
@@ -1386,6 +1454,180 @@ document.addEventListener('click', (e) => {
     if (e.target.id === 'plan-modal') closePlanModal();
     if (e.target.id === 'weight-modal') closeWeightModal();
 });
+
+// ─── Volume Tracking ─────────────────────────────────────────────────
+function getVolumeHistory() {
+    const data = loadData();
+    const volumes = {};
+    for (const [date, entry] of Object.entries(data)) {
+        if (!entry.completed || !entry.exercises) continue;
+        for (const [exIdx, sets] of Object.entries(entry.exercises)) {
+            const key = `${date}-ex${exIdx}`;
+            for (const set of sets) {
+                if (set.done && set.weight && set.reps) {
+                    const tons = parseFloat(set.weight) * parseFloat(set.reps) / 2000;
+                    volumes[key] = (volumes[key] || 0) + tons;
+                }
+            }
+        }
+    }
+    return volumes;
+}
+
+function getExerciseVolume(exerciseName) {
+    const data = loadData();
+    const volumes = {};
+    const plans = getPlans();
+    for (const plan of plans) {
+        for (const routine of plan.routines) {
+            const exIdx = routine.exercises.findIndex(e => e.name === exerciseName);
+            if (exIdx < 0) continue;
+            for (const [date, entry] of Object.entries(data)) {
+                if (!entry.completed || !entry.exercises) continue;
+                const sets = entry.exercises[exIdx];
+                if (!sets) continue;
+                let total = 0;
+                for (const set of sets) {
+                    if (set.done && set.weight && set.reps) {
+                        total += parseFloat(set.weight) * parseFloat(set.reps);
+                    }
+                }
+                if (total > 0) {
+                    const key = `${date}-${exerciseName}`;
+                    volumes[key] = total;
+                }
+            }
+        }
+    }
+    return volumes;
+}
+
+function findExerciseGlobalIndex(exerciseName) {
+    const plans = getPlans();
+    for (const plan of plans) {
+        for (const routine of plan.routines) {
+            const idx = routine.exercises.findIndex(e => e.name === exerciseName);
+            if (idx >= 0) return { planId: plan.id, routineId: routine.id, exIdx: idx };
+        }
+    }
+    return null;
+}
+
+function renderVolumeChart(exerciseName) {
+    const volumes = getExerciseVolume(exerciseName);
+    const entries = Object.entries(volumes).sort((a, b) => a[0].split('-')[0].localeCompare(b[0].split('-')[0]));
+    if (entries.length === 0) return '';
+    const maxVal = Math.max(...entries.map(e => e[1]));
+    let html = '<div class="volume-chart"><h4>Volume History (lbs)</h4><div class="volume-bars">';
+    entries.slice(-14).forEach(([key, val]) => {
+        const date = key.split('-')[0];
+        const pct = (val / maxVal) * 100;
+        html += `<div class="volume-bar" style="height:${pct}%" title="${date}: ${Math.round(val)} lbs"><div class="volume-bar-fill" style="height:100%"></div></div>`;
+    });
+    html += '</div></div>';
+    return html;
+}
+
+// ─── PR Tracking & Celebration ───────────────────────────────────────
+function getPRs() {
+    const data = loadData();
+    const prs = {};
+    for (const [date, entry] of Object.entries(data)) {
+        if (!entry.completed || !entry.exercises) continue;
+        for (const [exIdx, sets] of Object.entries(entry.exercises)) {
+            let maxWeight = 0;
+            for (const set of sets) {
+                if (set.done && set.weight) {
+                    const w = parseFloat(set.weight);
+                    if (w > maxWeight) maxWeight = w;
+                }
+            }
+            if (maxWeight > 0) {
+                const key = `ex${exIdx}`;
+                if (!prs[key] || maxWeight > prs[key].weight) {
+                    prs[key] = { weight: maxWeight, date, exercise: entry.routineName };
+                }
+            }
+        }
+    }
+    return prs;
+}
+
+let prCelebratedExercises = new Set();
+
+function checkPR(exerciseName, weight, reps) {
+    const globalIdx = findExerciseGlobalIndex(exerciseName);
+    if (!globalIdx) return false;
+    const prs = getPRs();
+    const key = `ex${globalIdx.exIdx}`;
+    const pr = prs[key];
+    if (!pr) return true; // First time, it's a PR
+    if (weight > pr.weight) return true;
+    // Same weight, more reps = PR
+    if (weight === pr.weight && reps > (prs[key + '_reps'] || 0)) {
+        prs[key + '_reps'] = reps;
+        return true;
+    }
+    return false;
+}
+
+function celebratePR(exerciseName, weight, reps) {
+    const key = exerciseName.toLowerCase().replace(/\s+/g, '-');
+    if (prCelebratedExercises.has(key)) return; // Only celebrate once per exercise per workout
+    prCelebratedExercises.add(key);
+
+    // Visual celebration overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'pr-celebration';
+    overlay.innerHTML = `
+        <div class="pr-content">
+            <div class="pr-emoji">🏆</div>
+            <h3>Personal Record!</h3>
+            <p>${exerciseName}</p>
+            <p class="pr-weight">${weight} lbs × ${reps} reps</p>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.classList.add('show');
+
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+
+    setTimeout(() => {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 500);
+    }, 2500);
+}
+
+// ─── Warm-up Calculator ──────────────────────────────────────────────
+function getWarmUpSets(firstWorkingWeight, firstWorkingReps) {
+    if (!firstWorkingWeight || isNaN(firstWorkingWeight)) return [];
+    const w = parseFloat(firstWorkingWeight);
+    return [
+        { weight: Math.round(w * 0.5), reps: '10', note: 'Light warm-up' },
+        { weight: Math.round(w * 0.7), reps: '5', note: 'Building up' },
+        { weight: Math.round(w * 0.85), reps: '3', note: 'Almost working' },
+    ];
+}
+
+function showWarmUpCalculator() {
+    const today = getTodayEntry();
+    const todayRoutine = getTodayRoutine();
+    if (!todayRoutine) { alert('No workout scheduled today.'); return; }
+    const ex = todayRoutine.routine.exercises;
+    if (ex.length === 0) { alert('No exercises in this routine.'); return; }
+
+    // Find first working set
+    const firstWorking = ex[0];
+    const log = getExerciseLog(getDateKey(), 0);
+    let weight = '';
+    if (log && log.length > 0 && log[0].weight) weight = log[0].weight;
+    if (!weight) weight = prompt('Enter your working weight:', '');
+    if (!weight || isNaN(weight)) return;
+
+    const warmUps = getWarmUpSets(weight, 12);
+    const text = warmUps.map(wu => `${wu.weight} lbs × ${wu.reps} reps — ${wu.note}`).join('\n\n');
+    alert(`Warm-up for ${firstWorking.name} (working: ${weight} lbs):\n\n${text}`);
+}
 
 // ─── Init ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', init);

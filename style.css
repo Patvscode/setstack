@@ -541,6 +541,88 @@ body {
 
 .bar-label { font-size: 11px; color: var(--text-dim); }
 
+/* Volume Tracking */
+.volume-section { margin-top: 24px; }
+.volume-section h3 { margin-bottom: 12px; }
+.volume-list { display: flex; flex-direction: column; gap: 8px; }
+.volume-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+.volume-ex-name { font-size: 13px; min-width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.volume-bar-track { flex: 1; height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; }
+.volume-bar-fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width 0.3s; }
+.volume-val { font-size: 12px; color: var(--text-dim); min-width: 55px; text-align: right; }
+
+.volume-chart { margin-top: 16px; }
+.volume-chart h4 { margin-bottom: 8px; font-size: 13px; color: var(--text-dim); }
+.volume-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; padding: 4px 0; }
+.volume-bar { flex: 1; display: flex; align-items: flex-end; }
+.volume-bar-fill {
+    width: 100%;
+    background: var(--accent2);
+    border-radius: 3px 3px 0 0;
+    opacity: 0.7;
+    transition: height 0.3s;
+}
+
+/* Plan Mini Calendar */
+.plan-calendar { padding: 0 14px 14px; }
+.calendar-row { display: flex; gap: 4px; justify-content: space-between; }
+.calendar-day {
+    flex: 1;
+    text-align: center;
+    padding: 6px 2px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+    font-size: 10px;
+    opacity: 0.5;
+}
+.calendar-today {
+    border: 1px solid var(--accent);
+    opacity: 1;
+}
+.calendar-active {
+    background: rgba(79,195,247,0.1);
+    opacity: 1;
+}
+.calendar-day-label { display: block; color: var(--text-dim); margin-bottom: 2px; }
+.calendar-dot { font-size: 14px; }
+
+/* PR Celebration */
+.pr-celebration {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+.pr-celebration.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.pr-content {
+    text-align: center;
+    animation: prBounce 0.5s ease-out;
+}
+.pr-emoji { font-size: 64px; margin-bottom: 12px; }
+.pr-content h3 { font-size: 24px; color: var(--warning); margin-bottom: 8px; }
+.pr-content p { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+.pr-weight { font-size: 20px; font-weight: 700; color: var(--accent); margin-top: 8px; }
+
+@keyframes prBounce {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .goal-item {
     background: var(--card);
     border-radius: 12px;
