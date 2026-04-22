@@ -52,7 +52,7 @@ body {
     border-top: 2px solid var(--accent);
 }
 
-/* Status Strip — sits above tab bar, shows current workout info */
+/* Status Strip */
 .status-strip {
     position: fixed;
     bottom: 60px;
@@ -90,6 +90,21 @@ body {
     background: var(--accent);
     transition: width 0.3s;
 }
+
+.btn-timer {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: var(--card);
+    color: var(--text-dim);
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.btn-timer:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Views */
 .view { display: none; padding: 16px; }
@@ -214,6 +229,40 @@ body {
 .btn-set:hover { border-color: var(--accent); color: var(--accent); }
 .btn-set.btn-done { border-color: var(--accent2); background: var(--accent2); color: #fff; }
 
+.set-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.btn-set-edit {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-set-edit:hover { border-color: var(--accent); color: var(--accent); }
+
+.prev-set {
+    padding: 4px 14px 2px;
+    font-size: 11px;
+}
+
+.prev-weight {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
 .btn-set-next {
     width: 28px;
     height: 28px;
@@ -228,6 +277,20 @@ body {
 }
 
 .btn-set-next:hover { background: var(--accent); color: #000; }
+
+.btn-weight-preset {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--border);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.btn-weight-preset:hover { background: var(--accent); color: #000; border-color: var(--accent); }
 
 /* Buttons */
 .btn {
@@ -297,7 +360,6 @@ body {
 
 .plan-header h2 { margin: 0; }
 
-/* Plan Cards */
 .plan-card {
     background: var(--card);
     border-radius: 12px;
@@ -318,7 +380,6 @@ body {
 .plan-card-header p { font-size: 12px; color: var(--text-dim); }
 .plan-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
 
-/* Routine Selector */
 .routine-selector { margin-bottom: 16px; }
 .routine-selector h3 { margin-bottom: 12px; font-size: 16px; }
 .routine-item {
@@ -334,7 +395,6 @@ body {
 .routine-actions { display: flex; gap: 6px; }
 .routine-actions .btn-sm { flex: 1; }
 
-/* Routine Editor */
 .routine-header {
     display: flex;
     align-items: center;
@@ -361,7 +421,6 @@ body {
 }
 .routine-form label input[type="text"]:focus { outline: none; border-color: var(--accent); }
 
-/* Exercise Row in Editor */
 .exercise-row {
     display: flex;
     gap: 6px;
@@ -416,7 +475,6 @@ body {
     text-align: center;
 }
 
-/* Log View */
 .log-entry {
     background: var(--card);
     border-radius: 12px;
@@ -429,7 +487,6 @@ body {
 .log-detail { font-size: 13px; color: var(--text-dim); }
 .log-time { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 
-/* Progress View */
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -484,7 +541,6 @@ body {
 
 .bar-label { font-size: 11px; color: var(--text-dim); }
 
-/* Goals View */
 .goal-item {
     background: var(--card);
     border-radius: 12px;
@@ -517,7 +573,6 @@ body {
 
 .notes-area:focus { outline: none; border-color: var(--accent); }
 
-/* Settings */
 .setting-item {
     display: flex;
     justify-content: space-between;
@@ -531,7 +586,6 @@ body {
 
 .setting-item.danger { border-color: var(--danger); }
 
-/* Modals */
 .modal {
     position: fixed;
     top: 0;
@@ -574,7 +628,6 @@ body {
     cursor: pointer;
 }
 
-/* Plan Editor */
 .plan-form { padding: 16px; }
 .plan-form label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 4px; }
 .plan-form label input[type="text"] {
@@ -611,7 +664,6 @@ body {
     font-size: 14px;
 }
 
-/* Weight Presets Modal */
 .preset-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -654,21 +706,6 @@ body {
     font-size: 14px;
 }
 
-.btn-weight-preset {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--border);
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.btn-weight-preset:hover { background: var(--accent); color: #000; border-color: var(--accent); }
-
-/* Set inputs layout */
 .set-inputs {
     display: flex;
     align-items: center;
@@ -677,7 +714,6 @@ body {
     min-width: 0;
 }
 
-/* Selects */
 select {
     padding: 8px;
     background: var(--bg);
@@ -689,10 +725,8 @@ select {
 
 select:focus { outline: none; border-color: var(--accent); }
 
-/* Utilities */
 .muted { color: var(--text-dim); font-size: 13px; }
 
-/* Responsive */
 @media (min-width: 600px) {
     body { max-width: 480px; margin: 0 auto; }
     .tab-bar { max-width: 480px; left: 50%; transform: translateX(-50%); }

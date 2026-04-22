@@ -1,12 +1,13 @@
-// ─── Workout Tracker v3: Plans → Routines → Exercises ────
-// Data hierarchy:
-//   Plan (bulking/cutting, months long) → Routines (Mon back, Tue chest) → Exercises
+// ─── Workout Tracker v3.2: Plans → Routines → Exercises ────
+// Data hierarchy: Plans → Routines → Exercises
 //
-// Quick Set Entry:
-//   - Arrow keys: up/down to next/prev set
-//   - Enter: confirm set, auto-advance
-//   - Tab: jump between inputs
-//   - Preset weight buttons for common jumps
+// Features:
+//   - Quick set entry: ⚡ weight presets, Enter auto-advance, arrow keys navigate
+//   - Rest timer: auto-starts on set complete, countdown, vibration + visual alert
+//   - Last workout comparison: shows "Last: 225×12" next to set input
+//   - Edit completed sets: tap a checked set to adjust weight/reps
+//   - Plans: create/edit/delete multi-month training programs
+//   - Auto-fill reps from plan spec
 //   - All input saves instantly to localStorage
 
 const DEFAULT_PLANS = [
@@ -39,7 +40,7 @@ const DEFAULT_PLANS = [
                 { name: "Straight-Legged Deadlifts", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
                 { name: "Standing Leg Curls", sets: 2, reps: "4-5", rest: "2 min", notes: "Heavy, low reps" },
                 { name: "Reverse Hack Squat", sets: 4, reps: "15-20", rest: "2 min", notes: "" },
-                { name: "Glute Kickbacks", sets: 3, reps: "12-15", rest: "90 sec", notes: "Single-leg pushdowns or cable" },
+                { name: "Glute Kickbacks", sets: 3, reps: "12-15", rest: "12-15", notes: "Single-leg pushdowns or cable" },
             ]},
             { id: "hype-shoulders", name: "Shoulders & Triceps", dayOfWeek: 4, exercises: [
                 { name: "DB Lateral Raises", sets: 3, reps: "15", rest: "60 sec", notes: "" },
@@ -69,6 +70,7 @@ const ICONS = ["💪","🏋️","🦵","🔙","🏃","🎯","🧘","⚡","🔥",
 const COLORS = ["#e74c3c","#e67e22","#f39c12","#2ecc71","#1abc9c","#3498db","#2980b9","#9b59b6","#8e44ad","#e84393","#fd79a8","#6c5ce7","#00b894","#fdcb6e","#e17055","#0984e3","#d63031","#a29bfe","#55efc4","#fab1a0"];
 
 const STORAGE_KEY = "workout-tracker-v3";
+const TIMER_STORAGE_KEY = "rest-timer";
 
 // ─── Data Layer ──────────────────────────────────────────────────────
 function loadData() {
@@ -96,21 +98,16 @@ function savePlans(plans) {
 }
 
 function getPlanById(id) { return getPlans().find(p => p.id === id); }
-
 function getDefaultPlans() { return DEFAULT_PLANS; }
-
 function isDefaultPlan(id) { return getDefaultPlans().some(d => d.id === id); }
 
-// Find today's routine from the active/default plan
 function getTodayRoutine() {
     const plans = getPlans();
     const dow = new Date().getDay();
-    // Try each plan for a routine matching today's day
     for (const plan of plans) {
         const routine = plan.routines.find(r => r.dayOfWeek === dow);
         if (routine) return { plan, routine };
     }
-    // Check if any routine exists for today
     for (const plan of plans) {
         for (const routine of plan.routines) {
             if (routine.dayOfWeek === dow) return { plan, routine };
@@ -127,14 +124,13 @@ function getTodayEntry() {
         const dow = new Date().getDay();
         const today = getTodayRoutine();
         data[key] = {
-            date: key,
-            dayOfWeek: dow,
+            date: key, dayOfWeek: dow,
             planId: today ? today.plan.id : null,
             routineId: today ? today.routine.id : null,
             routineName: today ? today.routine.name : null,
             planName: today ? today.plan.name : null,
             planColor: today ? today.plan.color : "#95a5a6",
-            exercises: {},  // { exerciseIdx: [{weight, reps, rir, done}, ...] }
+            exercises: {},
             completed: false,
             startTime: null,
             endTime: null,
@@ -158,6 +154,64 @@ function saveExerciseLog(date, exerciseIdx, sets) {
     if (!data[key]) return;
     data[key].exercises[exerciseIdx] = sets;
     saveData(data);
+}
+
+// Get previous workout data for the same exercise (most recent completed)
+function getPreviousExerciseData(exerciseName) {
+    const data = loadData();
+    const completedDays = Object.entries(data)
+        .filter(([key, val]) => val.completed && val.exercises && val.routineName)
+        .sort((a, b) => b[0].localeCompare(a[0]));
+
+    for (const [, entry] of completedDays) {
+        if (entry.exercises) {
+            for (let idx = 0; idx < entry.exercises.length; idx++) {
+                const exRoutine = findExerciseByName(entry, exerciseName, idx);
+                if (exRoutine) {
+                    return { entry, sets: entry.exercises[idx], exerciseName };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function findExerciseByName(entry, name, startIdx) {
+    const routine = entry.routineId ? getRoutineForExercise(entry, name) : null;
+    if (routine) {
+        const idx = Object.keys(entry.exercises).find(k => {
+            const sets = entry.exercises[k];
+            return sets && sets.some(s => s.weight || s.reps);
+        });
+        if (idx !== undefined) return parseInt(idx);
+    }
+    // Fallback: just return first non-empty exercise
+    for (const [k, sets] of Object.entries(entry.exercises)) {
+        const i = parseInt(k);
+        if (i >= startIdx && sets && sets.some(s => s.weight || s.reps)) return i;
+    }
+    return null;
+}
+
+function getRoutineForExercise(entry, exerciseName) {
+    const plan = getPlanById(entry.planId);
+    if (!plan) return null;
+    for (const routine of plan.routines) {
+        if (routine.exercises.some(e => e.name === exerciseName)) return routine;
+    }
+    return null;
+}
+
+function getPreviousSetData(exerciseName, setIndex) {
+    const prev = getPreviousExerciseData(exerciseName);
+    if (!prev) return null;
+    const set = prev.sets[setIndex];
+    if (!set) return null;
+    return {
+        weight: set.weight || set.reps || '',
+        reps: set.reps || '',
+        rir: set.rir || '',
+    };
 }
 
 function getWorkoutLogs() {
@@ -214,7 +268,7 @@ function getWeeklyCount() {
 }
 
 // ─── Quick Weight Presets ────────────────────────────────────────────
-const WEIGHT_PRESETS = [5, 7.5, 10, 15, 20, 25, 35, 45, 90]; // common plate additions
+const WEIGHT_PRESETS = [5, 7.5, 10, 15, 20, 25, 35, 45, 90];
 
 function getWeightPresets() {
     const data = loadData();
@@ -225,6 +279,165 @@ function saveWeightPresets(presets) {
     const data = loadData();
     data.weightPresets = presets;
     saveData(data);
+}
+
+// ─── Rest Timer ──────────────────────────────────────────────────────
+let restTimerInterval = null;
+let restTimerRemaining = 0;
+let restTimerTarget = 0;
+
+function parseRestTime(restStr) {
+    if (!restStr) return 90;
+    restStr = restStr.toLowerCase().trim();
+    const minMatch = restStr.match(/(\d+)\s*min/);
+    const secMatch = restStr.match(/(\d+)\s*sec/);
+    if (minMatch) return parseInt(minMatch[1]) * 60;
+    if (secMatch) return parseInt(secMatch[1]);
+    // "2-3 min" -> use lower bound
+    const rangeMatch = restStr.match(/(\d+)\s*-\s*(\d+)\s*min/);
+    if (rangeMatch) return parseInt(rangeMatch[1]) * 60;
+    return 90; // default 90 seconds
+}
+
+function startRestTimer(exerciseIdx, setIdx) {
+    stopRestTimer();
+
+    const routine = getTodayRoutine();
+    if (!routine) return;
+    const ex = routine.routine.exercises[exerciseIdx];
+    if (!ex) return;
+
+    const seconds = parseRestTime(ex.rest);
+    restTimerRemaining = seconds;
+    restTimerTarget = seconds;
+
+    saveTimerState(exerciseIdx, setIdx, seconds);
+    renderTimer();
+    updateStatusStrip();
+}
+
+function stopRestTimer() {
+    if (restTimerInterval) {
+        clearInterval(restTimerInterval);
+        restTimerInterval = null;
+    }
+    clearTimerState();
+}
+
+function tickRestTimer() {
+    restTimerRemaining--;
+    renderTimer();
+
+    if (restTimerRemaining <= 0) {
+        // Timer done!
+        triggerRestAlert();
+        return;
+    }
+
+    if (restTimerRemaining <= 3 && restTimerRemaining > 0) {
+        // Vibration countdown
+        if (navigator.vibrate) navigator.vibrate(100);
+    }
+}
+
+function triggerRestAlert() {
+    stopRestTimer();
+    updateStatusStrip();
+
+    // Visual: flash the status strip
+    const strip = document.getElementById('status-strip');
+    if (strip) {
+        strip.style.background = 'rgba(129, 199, 132, 0.3)';
+        setTimeout(() => { strip.style.background = ''; }, 1500);
+    }
+
+    // Sound: beep via oscillator
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.3;
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+        setTimeout(() => {
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.frequency.value = 1000;
+            gain2.gain.value = 0.3;
+            osc2.start();
+            osc2.stop(ctx.currentTime + 0.3);
+        }, 350);
+    } catch (e) { /* audio not available */ }
+
+    // Vibration pattern
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+}
+
+function resumeRestTimer() {
+    const state = loadTimerState();
+    if (state && state.remaining > 0) {
+        restTimerRemaining = state.remaining;
+        restTimerTarget = state.target;
+        restTimerInterval = setInterval(tickRestTimer, 1000);
+        updateStatusStrip();
+    }
+}
+
+function saveTimerState(exIdx, setIdx, remaining) {
+    const state = { exIdx, setIdx, remaining, target: remaining, startedAt: Date.now() };
+    try { localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function loadTimerState() {
+    try {
+        const s = localStorage.getItem(TIMER_STORAGE_KEY);
+        return s ? JSON.parse(s) : null;
+    } catch { return null; }
+}
+
+function clearTimerState() {
+    try { localStorage.removeItem(TIMER_STORAGE_KEY); } catch {}
+}
+
+function renderTimer() {
+    if (restTimerRemaining <= 0) return;
+    const mins = Math.floor(restTimerRemaining / 60);
+    const secs = restTimerRemaining % 60;
+    const display = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    const timerBtn = document.getElementById('rest-timer-btn');
+    if (timerBtn) {
+        timerBtn.innerHTML = `⏱ <span id="timer-display">${display}</span>`;
+        timerBtn.style.borderColor = 'var(--accent)';
+        timerBtn.style.color = 'var(--accent)';
+    }
+
+    const progressFill = document.getElementById('timer-progress-fill');
+    if (progressFill) {
+        const pct = Math.max(0, (restTimerRemaining / restTimerTarget) * 100);
+        progressFill.style.width = pct + '%';
+    }
+}
+
+function toggleRestTimer() {
+    if (restTimerRemaining > 0 && restTimerInterval) {
+        // Pause
+        stopRestTimer();
+        updateStatusStrip();
+    } else {
+        // Resume or start fresh
+        resumeRestTimer();
+    }
+}
+
+function dismissRestTimer() {
+    stopRestTimer();
+    updateStatusStrip();
 }
 
 // ─── UI Rendering ────────────────────────────────────────────────────
@@ -242,6 +455,9 @@ function init() {
     renderGoals();
     renderSettings();
     setupTabs();
+
+    // Restore rest timer if workout was in progress
+    resumeRestTimer();
 }
 
 // ─── TODAY VIEW ──────────────────────────────────────────────────────
@@ -249,8 +465,7 @@ function renderToday() {
     const today = getTodayEntry();
     const todayRoutine = getTodayRoutine();
 
-    // Update status strip
-    updateStatusStrip(today, todayRoutine);
+    updateStatusStrip();
 
     if (!todayRoutine) {
         document.getElementById('today-workout').innerHTML = `
@@ -266,11 +481,6 @@ function renderToday() {
     const routine = todayRoutine.routine;
     const plan = todayRoutine.plan;
     const exercises = routine.exercises;
-
-    const completedExercises = Object.keys(today.exercises || {}).filter(k => {
-        const sets = today.exercises[k];
-        return sets && sets.some(s => s.done);
-    });
     const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
     const completedSets = Object.values(today.exercises || {}).reduce((s, sets) => s + sets.filter(x => x.done).length, 0);
     const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
@@ -318,6 +528,9 @@ function renderToday() {
 function renderSets(ex, idx, log) {
     let html = '<div class="sets-container">';
 
+    // Get previous workout data for comparison
+    const prevData = getPreviousSetData(ex.name, 0);
+
     for (let i = 0; i < ex.sets; i++) {
         const set = log ? log[i] : null;
         const weight = set ? set.weight : '';
@@ -325,40 +538,45 @@ function renderSets(ex, idx, log) {
         const rir = set ? set.rir : '';
         const done = set ? set.done : false;
 
-        // Auto-fill reps from plan
         const defaultReps = getSetReps(ex.reps, ex.sets, i);
 
-        // Generate weight presets (previous + next common increments)
-        const presets = getWeightPresets();
-        let presetBtns = '';
-        presets.forEach(p => {
-            presetBtns += `<button class="weight-preset" onclick="setWeight(${idx},${i},'${p}')">${p}</button>`;
-        });
+        // Get previous set's data for this specific set index
+        const prevSetData = getPreviousSetData(ex.name, i);
+        const prevWeight = prevSetData ? prevSetData.weight : '';
+        const prevReps = prevSetData ? prevSetData.reps : '';
 
         html += `
             <div class="set-row ${done ? 'set-done' : ''}" id="set-${idx}-${i}">
                 <span class="set-num">Set ${i + 1}</span>
                 <div class="set-inputs">
-                    <input type="number" class="set-input weight-input" placeholder="lbs" 
+                    <input type="number" class="set-input weight-input" placeholder="lbs"
                         value="${weight}" oninput="autoSaveSet(${idx}, ${i}, 'weight', this.value)"
                         onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
                         ${done ? 'disabled' : ''} aria-label="Weight">
                     <button class="btn-weight-preset" onclick="openWeightPreset(${idx},${i})" title="Quick weights">⚡</button>
-                    <input type="number" class="set-input reps-input" placeholder="${defaultReps}" 
+                    <input type="number" class="set-input reps-input" placeholder="${defaultReps}"
                         value="${reps}" oninput="autoSaveSet(${idx}, ${i}, 'reps', this.value)"
                         onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
                         ${done ? 'disabled' : ''} aria-label="Reps">
-                    <input type="number" class="set-input rir-input" placeholder="RIR" 
+                    <input type="number" class="set-input rir-input" placeholder="RIR"
                         value="${rir}" oninput="autoSaveSet(${idx}, ${i}, 'rir', this.value)"
                         onkeydown="handleSetKey(event, ${idx}, ${i}, ${ex.sets})"
                         ${done ? 'disabled' : ''} aria-label="RIR" title="Reps in reserve">
                 </div>
-                <button class="btn-set ${done ? 'btn-done' : 'btn-check'}" 
-                    onclick="toggleSet(${idx}, ${i})" ${done ? 'disabled' : ''}>
-                    ${done ? '✓' : '○'}
-                </button>
-                ${!done ? `<button class="btn-set-next" onclick="advanceToSet(${idx}, ${i})" title="Next set">⏭</button>` : ''}
-            </div>`;
+                <div class="set-actions">
+                    <button class="btn-set ${done ? 'btn-done' : 'btn-check'}"
+                        onclick="toggleSet(${idx}, ${i})" ${done ? 'disabled' : ''}>
+                        ${done ? '✓' : '○'}
+                    </button>
+                    ${!done ? `<button class="btn-set-next" onclick="advanceToSet(${idx}, ${i})" title="Next set">⏭</button>` : ''}
+                    ${done ? `<button class="btn-set-edit" onclick="editSet(${idx}, ${i})" title="Edit">✏️</button>` : ''}
+                </div>
+            </div>
+            ${prevWeight || prevReps ? `
+            <div class="prev-set" data-prev-idx="${idx}" data-prev-set="${i}">
+                ${prevWeight ? `<span class="prev-weight">Last: ${prevWeight}${prevReps ? '×' + prevReps : ''}</span>` : ''}
+            </div>` : ''}
+        `;
     }
 
     html += '</div>';
@@ -367,22 +585,19 @@ function renderSets(ex, idx, log) {
 
 // ─── Quick Set Entry Helpers ─────────────────────────────────────────
 function handleSetKey(event, exerciseIdx, setIdx, totalSets) {
-    // Enter: toggle current set done and advance
     if (event.key === 'Enter') {
         event.preventDefault();
         const setRow = document.getElementById(`set-${exerciseIdx}-${setIdx}`);
         if (setRow) {
-            const doneBtn = setRow.querySelector('.btn-set:not(:disabled)');
+            const doneBtn = setRow.querySelector('.btn-check');
             if (doneBtn) {
                 doneBtn.click();
-                // Auto-advance to next set
                 if (setIdx < totalSets - 1) {
                     setTimeout(() => advanceToSet(exerciseIdx, setIdx), 100);
                 }
             }
         }
     }
-    // Arrow Up/Down: navigate between set rows
     if (event.key === 'ArrowDown') {
         event.preventDefault();
         advanceToSet(exerciseIdx, setIdx);
@@ -411,7 +626,6 @@ function advanceToSet(exerciseIdx, currentSetIdx) {
 function setWeight(exerciseIdx, setIdx, weight) {
     autoSaveSet(exerciseIdx, setIdx, 'weight', weight);
     closeWeightModal();
-    // Re-render to show the updated weight
     setTimeout(() => renderToday(), 50);
 }
 
@@ -428,7 +642,7 @@ function openWeightPreset(exerciseIdx, setIdx) {
     html += `
         <div class="preset-custom">
             <label>Custom presets (comma separated):
-                <input type="text" class="preset-input" value="${presets.join(',')}" 
+                <input type="text" class="preset-input" value="${presets.join(',')}"
                     onchange="updatePresets(this.value)">
             </label>
         </div>`;
@@ -443,10 +657,6 @@ function updatePresets(value) {
         return isNaN(n) ? 0 : n;
     }).filter(n => n > 0);
     saveWeightPresets(presets);
-    openWeightPreset._reopen = true;
-    setTimeout(() => {
-        // Refresh preset display if still open
-    }, 100);
 }
 
 function getSetReps(repsSpec, totalSets, setIdx) {
@@ -467,7 +677,6 @@ function autoSaveSet(exerciseIdx, setIdx, field, value) {
     if (!sets[setIdx]) sets[setIdx] = { done: false };
     sets[setIdx][field] = value;
     saveExerciseLog(date, exerciseIdx, sets);
-    // Update UI minimally without full re-render
     updateSetCount(exerciseIdx);
 }
 
@@ -479,7 +688,6 @@ function toggleSet(exerciseIdx, setIdx) {
     sets[setIdx].done = !sets[setIdx].done;
     saveExerciseLog(date, exerciseIdx, sets);
 
-    // Update just this set row
     const row = document.getElementById(`set-${exerciseIdx}-${setIdx}`);
     if (row) {
         row.classList.toggle('set-done', sets[setIdx].done);
@@ -491,6 +699,14 @@ function toggleSet(exerciseIdx, setIdx) {
             const nextBtn = row.querySelector('.btn-set-next');
             if (nextBtn) nextBtn.style.display = sets[setIdx].done ? 'inline-flex' : 'none';
         }
+        // Show edit button if done
+        let editBtn = row.querySelector('.btn-set-edit');
+        if (!sets[setIdx].done && editBtn) {
+            editBtn.remove();
+        } else if (sets[setIdx].done && !editBtn) {
+            row.querySelector('.set-actions').insertAdjacentHTML('beforeend',
+                '<button class="btn-set-edit" onclick="editSet(' + exerciseIdx + ', ' + setIdx + ')" title="Edit">✏️</button>');
+        }
         // Disable inputs
         row.querySelectorAll('.set-input:not(:disabled)').forEach(inp => {
             if (sets[setIdx].done) inp.disabled = true;
@@ -499,6 +715,32 @@ function toggleSet(exerciseIdx, setIdx) {
 
     updateSetCount(exerciseIdx);
     updateExerciseHeader(exerciseIdx);
+    updateOverallProgress();
+
+    // Start rest timer when set is checked
+    if (sets[setIdx].done) {
+        startRestTimer(exerciseIdx, setIdx);
+    } else {
+        stopRestTimer();
+    }
+}
+
+function editSet(exerciseIdx, setIdx) {
+    const date = getDateKey();
+    const log = getExerciseLog(date, exerciseIdx);
+    const sets = log || [];
+    const set = sets[setIdx] || { done: false, weight: '', reps: '', rir: '' };
+
+    const weight = prompt('Weight (lbs):', set.weight || '');
+    if (weight === null) return;
+    const reps = prompt('Reps:', set.reps || '');
+    if (reps === null) return;
+    const rir = prompt('RIR (optional):', set.rir || '');
+    if (rir === null) return;
+
+    sets[setIdx] = { done: true, weight, reps, rir: rir || '' };
+    saveExerciseLog(date, exerciseIdx, sets);
+    renderToday();
     updateOverallProgress();
 }
 
@@ -537,9 +779,8 @@ function updateOverallProgress() {
     if (progressSpan) progressSpan.textContent = pct + '%';
     if (meta) meta.textContent = `${routine.routine.name} · ${routine.routine.exercises.length} exercises · ${totalSets} sets · ${completedSets}/${totalSets} sets done`;
 
-    updateStatusStrip(today, { plan: todayRoutine.plan, routine: todayRoutine.routine });
+    updateStatusStrip();
 
-    // Show/hide finish button
     const existing = document.querySelector('.btn-finish');
     if (completedSets > 0 && !today.completed && !existing) {
         document.getElementById('today-workout').insertAdjacentHTML('beforeend',
@@ -548,9 +789,12 @@ function updateOverallProgress() {
 }
 
 // ─── Status Strip ──────────────────────────────────────────────────────
-function updateStatusStrip(today, todayRoutine) {
+function updateStatusStrip() {
     const strip = document.getElementById('status-strip');
     if (!strip) return;
+
+    const today = getTodayEntry();
+    const todayRoutine = getTodayRoutine();
 
     if (todayRoutine && !today.completed) {
         const routine = todayRoutine.routine;
@@ -563,6 +807,22 @@ function updateStatusStrip(today, todayRoutine) {
         document.getElementById('status-detail').textContent = `${completedSets}/${totalSets} sets`;
         document.getElementById('status-progress').textContent = pct + '%';
         document.getElementById('status-progress-fill').style.width = pct + '%';
+
+        // Show rest timer if active
+        const timerBtn = document.getElementById('rest-timer-btn');
+        if (restTimerRemaining > 0 && restTimerInterval) {
+            if (timerBtn) {
+                const mins = Math.floor(restTimerRemaining / 60);
+                const secs = restTimerRemaining % 60;
+                timerBtn.innerHTML = `⏱ ${mins}:${secs.toString().padStart(2, '0')}`;
+                timerBtn.style.borderColor = 'var(--accent)';
+                timerBtn.style.color = 'var(--accent)';
+                timerBtn.style.display = 'inline-flex';
+            }
+        } else if (timerBtn) {
+            timerBtn.style.display = 'none';
+        }
+
         strip.classList.add('visible');
     } else if (today.completed) {
         document.getElementById('status-name').textContent = '✅ Workout Complete';
@@ -582,6 +842,7 @@ function toggleExerciseBody(idx) {
 
 // ─── Finish Workout ──────────────────────────────────────────────────
 function finishWorkout() {
+    stopRestTimer();
     const today = getTodayEntry();
     today.endTime = new Date().toISOString();
     today.completed = true;
@@ -656,7 +917,7 @@ function openRoutineSelector(planId) {
                 const today = new Date().getDay();
                 const isToday = r.dayOfWeek === today;
                 return `
-                    <div class="routine-item ${isToday ? 'routine-today' : ''}" 
+                    <div class="routine-item ${isToday ? 'routine-today' : ''}"
                          style="${isToday ? 'border-left:3px solid var(--accent)' : ''}">
                         <div>
                             <strong>${r.name} ${isToday ? '📍 Today' : ''}</strong>
@@ -672,7 +933,6 @@ function openRoutineSelector(planId) {
             <button class="btn btn-primary" onclick="openRoutineEditor('${plan.id}',null)" style="width:100%;margin-top:12px">+ Add Routine</button>
         </div>`;
 
-    // Show in a modal or inline
     document.getElementById('plan-list').innerHTML = html + '<button class="btn btn-sm" onclick="renderPlans()" style="margin-top:12px">← Back to Plans</button>';
 }
 
@@ -730,7 +990,6 @@ function openRoutineEditor(planId, routineId) {
             <button class="btn btn-sm" onclick="goBackFromRoutine()" style="width:100%;margin-top:8px">Cancel</button>
         </div>`;
 
-    // Switch to routine editor view
     showView('routine-editor');
 }
 
@@ -789,13 +1048,11 @@ function saveRoutine() {
     if (planIdx < 0) return;
 
     if (currentRoutineEdit.routineId) {
-        // Edit existing
         const rIdx = plans[planIdx].routines.findIndex(r => r.id === currentRoutineEdit.routineId);
         if (rIdx >= 0) {
             plans[planIdx].routines[rIdx] = { ...plans[planIdx].routines[rIdx], name, dayOfWeek, exercises };
         }
     } else {
-        // Create new
         plans[planIdx].routines.push({
             id: generateId(),
             name, dayOfWeek, exercises,
@@ -996,7 +1253,7 @@ function renderGoals() {
         </div>
         <div class="goal-item">
             <div class="goal-header"><span>📝 Goals & Notes</span></div>
-            <textarea class="notes-area" placeholder="e.g., Gain 10lbs on bench, drop to 15% bodyfat..." 
+            <textarea class="notes-area" placeholder="e.g., Gain 10lbs on bench, drop to 15% bodyfat..."
                 onchange="saveGoalNotes(this.value)">${goals.notes || ''}</textarea>
         </div>`;
 }
@@ -1040,7 +1297,7 @@ function renderSettings() {
         <div class="setting-item"><span>📥 Import Data</span><button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Upload JSON</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"></div>
         <div class="setting-item"><span>📋 Reset Plans to Default</span><button class="btn btn-sm" onclick="resetPlans()">Reset</button></div>
         <div class="setting-item danger"><span>🗑️ Clear All Data</span><button class="btn btn-sm btn-danger" onclick="clearAllData()">Reset Everything</button></div>
-        <p class="muted" style="margin-top:20px">Workout Tracker v3.0 — Data stored locally in your browser</p>`;
+        <p class="muted" style="margin-top:20px">SetStack v3.2 — Data stored locally in your browser</p>`;
 }
 
 function exportData() {
@@ -1049,7 +1306,7 @@ function exportData() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `workout-tracker-${getDateKey()}.json`;
+    a.download = `setstack-${getDateKey()}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -1077,8 +1334,10 @@ function importData(event) {
 }
 
 function clearAllData() {
+    stopRestTimer();
     if (confirm('Are you sure? This will delete ALL workout data.')) {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TIMER_STORAGE_KEY);
         init();
     }
 }
@@ -1100,7 +1359,6 @@ function showView(viewId) {
     const tab = document.querySelector(`.tab[data-view="${viewId}"]`);
     if (tab) tab.classList.add('active');
 
-    // Hide status strip on non-today views
     const strip = document.getElementById('status-strip');
     if (strip && viewId !== 'today') strip.classList.remove('visible');
 }
